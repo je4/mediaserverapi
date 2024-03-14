@@ -1,0 +1,12 @@
+localaddr = "localhost:8765"
+externaladdr = "https://localhost:8765"
+loglevel = "DEBUG"
+
+[grpcclient]
+mediaserverdb = "localhost:7653"
+
+[server]
+type = "dev"
+
+[client]
+type = "dev"
