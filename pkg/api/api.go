@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"net/http"
 	"net/url"
 	"strings"
@@ -77,7 +78,9 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1 := ctrl.router.Group(BASEPATH)
 	v1.GET("/ping", ctrl.ping)
 	v1.GET("/collection/:collection", ctrl.collection)
+	v1.PUT("/collection/:collection", ctrl.createItem)
 	v1.GET("/storage/:storageid", ctrl.storage)
+	v1.GET("/ingest", ctrl.getIngestItem)
 
 	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	//ctrl.router.StaticFS("/swagger/", http.FS(swaggerFiles.FS))
@@ -152,7 +155,7 @@ type HTTPCollectionResultMessage struct {
 // @ID			 get-collection-by-name
 // @Description  retrieves mediaserver collection information
 // @Tags         mediaserver
-// @Produce      plain
+// @Produce      json
 // @Param		 collection path string true "collection name"
 // @Success      200  {string}  HTTPCollectionResultMessage
 // @Failure      400  {object}  HTTPResultMessage
@@ -199,12 +202,12 @@ type HTTPStorageResultMessage struct {
 	Tempdir    string `json:"tempdir,omitempty"`
 }
 
-// collection godoc
+// storage godoc
 // @Summary      gets storage data
 // @ID			 get-storage-by-id
 // @Description  retrieves mediaserver storage information
 // @Tags         mediaserver
-// @Produce      plain
+// @Produce      json
 // @Param		 storageid path string true "storage id"
 // @Success      200  {string}  HTTPStorageResultMessage
 // @Failure      400  {object}  HTTPResultMessage
@@ -238,5 +241,129 @@ func (ctrl *controller) storage(c *gin.Context) {
 		Datadir:    storage.GetDatadir(),
 		Subitemdir: storage.GetSubitemdir(),
 		Tempdir:    storage.GetTempdir(),
+	})
+}
+
+type CreateItemMessage struct {
+	Signature     string `json:"signature"`
+	Urn           string `json:"path"`
+	Public        string `json:"public,omitempty"`
+	Parent        string `json:"parent,omitempty"`
+	PublicActions string `json:"public_actions,omitempty"`
+}
+
+// createItem godoc
+// @Summary      creates new item
+// @ID			 put-collection-item
+// @Description  creates a new item for indexing
+// @Tags         mediaserver
+// @Produce      json
+// @Param		 collection path string true "collection name"
+// @Param 		 item       body CreateItemMessage true "new item to create"
+// @Success      200  {object}  HTTPResultMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      404  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /collection/{collection} [put]
+func (ctrl *controller) createItem(c *gin.Context) {
+	collection := c.Param("collection")
+	if collection == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
+		return
+	}
+	var item CreateItemMessage
+	if err := c.ShouldBindJSON(&item); err != nil {
+		NewResultMessage(c, http.StatusBadRequest, errors.Wrap(err, "cannot bind item"))
+		return
+	}
+	var parent *mediaserverdbproto.ItemIdentifier
+	if item.Parent != "" {
+		parts := strings.SplitN(item.Parent, "/", 2)
+		if len(parts) != 2 {
+			NewResultMessage(c, http.StatusBadRequest, errors.Errorf("invalid parent %s", item.Parent))
+			return
+		}
+		parent = &mediaserverdbproto.ItemIdentifier{
+			Collection: parts[0],
+			Signature:  parts[1],
+		}
+		resp, err := ctrl.dbClient.ExistsItem(context.Background(), parent)
+		if err != nil {
+			NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot check parent %s", item.Parent))
+			return
+		}
+		if resp.GetStatus().Enum() != mediaserverdbproto.ResultStatus_OK.Enum() {
+			NewResultMessage(c, http.StatusBadRequest, errors.Errorf("parent %s does not exist", item.Parent))
+			return
+		}
+	}
+	if strings.Contains(item.Signature, "/") {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("signature contains '/' character:  %s ", item.Signature))
+		return
+	}
+
+	result, err := ctrl.dbClient.CreateItem(context.Background(), &mediaserverdbproto.NewItem{
+		Identifier: &mediaserverdbproto.ItemIdentifier{
+			Collection: collection,
+			Signature:  item.Signature,
+		},
+		Urn:           item.Urn,
+		Public:        []byte(item.Public),
+		Parent:        parent,
+		PublicActions: []byte(item.PublicActions),
+	})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.AlreadyExists {
+				NewResultMessage(c, http.StatusBadRequest, errors.Errorf("item %s/%s already exists", collection, item.Signature))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("create item %s/%s: %v", collection, item.Signature, err))
+		return
+	}
+	if result.Status.String() != mediaserverdbproto.ResultStatus_OK.String() {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("cannot create item: %s/%s: %s", collection, item.Signature, result.Message))
+		return
+	}
+	c.JSON(http.StatusOK, HTTPResultMessage{
+		Code:    http.StatusOK,
+		Message: result.Message,
+	})
+}
+
+type HTTPIngestItemMessage struct {
+	Collection string `json:"collection"`
+	Signature  string `json:"signature"`
+	Urn        string `json:"path"`
+}
+
+// getIngestItem godoc
+// @Summary      next ingest item
+// @ID			 get-ingest-item
+// @Description  gets next item for indexing
+// @Tags         mediaserver
+// @Produce      json
+// @Success      200  {object}  HTTPIngestItemMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      404  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /ingest [get]
+func (ctrl *controller) getIngestItem(c *gin.Context) {
+	result, err := ctrl.dbClient.GetIngestItem(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "no ingest item found"))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get ingest item"))
+		return
+	}
+	c.JSON(http.StatusOK, HTTPIngestItemMessage{
+		Collection: result.GetIdentifier().GetCollection(),
+		Signature:  result.GetIdentifier().GetSignature(),
+		Urn:        result.GetUrn(),
 	})
 }

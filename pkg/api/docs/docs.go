@@ -28,7 +28,7 @@ const docTemplate = `{
             "get": {
                 "description": "retrieves mediaserver collection information",
                 "produces": [
-                    "text/plain"
+                    "application/json"
                 ],
                 "tags": [
                     "mediaserver"
@@ -70,24 +70,40 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/ping": {
-            "get": {
-                "description": "for testing if server is running",
+            },
+            "put": {
+                "description": "creates a new item for indexing",
                 "produces": [
-                    "text/plain"
+                    "application/json"
                 ],
                 "tags": [
                     "mediaserver"
                 ],
-                "summary": "does pong",
-                "operationId": "get-ping",
+                "summary": "creates new item",
+                "operationId": "put-collection-item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "collection name",
+                        "name": "collection",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "new item to create",
+                        "name": "item",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateItemMessage"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/api.HTTPResultMessage"
                         }
                     },
                     "400": {
@@ -111,11 +127,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/ingest": {
+            "get": {
+                "description": "gets next item for indexing",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mediaserver"
+                ],
+                "summary": "next ingest item",
+                "operationId": "get-ingest-item",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPIngestItemMessage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPResultMessage"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPResultMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.HTTPResultMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/ping": {
+            "get": {
+                "description": "for testing if server is running",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "mediaserver"
+                ],
+                "summary": "does pong",
+                "operationId": "get-ping",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/storage/{storageid}": {
             "get": {
                 "description": "retrieves mediaserver storage information",
                 "produces": [
-                    "text/plain"
+                    "application/json"
                 ],
                 "tags": [
                     "mediaserver"
@@ -161,6 +237,40 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "api.CreateItemMessage": {
+            "type": "object",
+            "properties": {
+                "parent": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "public": {
+                    "type": "string"
+                },
+                "public_actions": {
+                    "type": "string"
+                },
+                "signature": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.HTTPIngestItemMessage": {
+            "type": "object",
+            "properties": {
+                "collection": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "signature": {
+                    "type": "string"
+                }
+            }
+        },
         "api.HTTPResultMessage": {
             "type": "object",
             "properties": {

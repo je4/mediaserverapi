@@ -1,4 +1,26 @@
 definitions:
+  api.CreateItemMessage:
+    properties:
+      parent:
+        type: string
+      path:
+        type: string
+      public:
+        type: string
+      public_actions:
+        type: string
+      signature:
+        type: string
+    type: object
+  api.HTTPIngestItemMessage:
+    properties:
+      collection:
+        type: string
+      path:
+        type: string
+      signature:
+        type: string
+    type: object
   api.HTTPResultMessage:
     properties:
       code:
@@ -32,7 +54,7 @@ paths:
         required: true
         type: string
       produces:
-      - text/plain
+      - application/json
       responses:
         "200":
           description: OK
@@ -53,17 +75,28 @@ paths:
       summary: gets collection data
       tags:
       - mediaserver
-  /ping:
-    get:
-      description: for testing if server is running
-      operationId: get-ping
+    put:
+      description: creates a new item for indexing
+      operationId: put-collection-item
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: new item to create
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateItemMessage'
       produces:
-      - text/plain
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            type: string
+            $ref: '#/definitions/api.HTTPResultMessage'
         "400":
           description: Bad Request
           schema:
@@ -76,6 +109,46 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.HTTPResultMessage'
+      summary: creates new item
+      tags:
+      - mediaserver
+  /ingest:
+    get:
+      description: gets next item for indexing
+      operationId: get-ingest-item
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.HTTPIngestItemMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.HTTPResultMessage'
+      summary: next ingest item
+      tags:
+      - mediaserver
+  /ping:
+    get:
+      description: for testing if server is running
+      operationId: get-ping
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
       summary: does pong
       tags:
       - mediaserver
@@ -90,7 +163,7 @@ paths:
         required: true
         type: string
       produces:
-      - text/plain
+      - application/json
       responses:
         "200":
           description: OK
