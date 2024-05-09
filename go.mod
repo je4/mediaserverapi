@@ -7,7 +7,7 @@ require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/bluele/gcache v0.0.2
 	github.com/gin-gonic/gin v1.9.1
-	github.com/je4/mediaserverdb/v2 v2.0.1
+	github.com/je4/mediaserverdb/v2 v2.0.3
 	github.com/je4/trustutil/v2 v2.0.3
 	github.com/je4/utils/v2 v2.0.23
 	github.com/rs/zerolog v1.32.0

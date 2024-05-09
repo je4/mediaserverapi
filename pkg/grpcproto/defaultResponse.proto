@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option go_package = "github.com/je4/mediaserverapi/v2/pkg/grpcproto";
+option java_package = "ch.unibas.ub.mediaserver.api";
+option java_outer_classname = "DefaultResponseProto";
+option java_multiple_files = true;
+option objc_class_prefix = "UBB";
+option csharp_namespace = "Unibas.UB.Mediaserver.API";
+
+package grpcproto;
+
+import "google/protobuf/any.proto";
+
+enum ResultStatus {
+  Error = 0;
+  OK = 1;
+  Warning = 2;
+  NotFound = 3;
+}
+
+message DefaultResponse {
+  ResultStatus status = 1;
+  string message = 2;
+  optional google.protobuf.Any data = 3;
+}

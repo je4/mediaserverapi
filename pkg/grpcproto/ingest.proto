@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "github.com/je4/mediaserverapi/v2/pkg/grpcproto";
+option java_package = "ch.unibas.ub.mediaserver.api";
+option java_outer_classname = "IngestProto";
+option java_multiple_files = true;
+option objc_class_prefix = "UBB";
+option csharp_namespace = "Unibas.UB.Mediaserver.API";
+
+package grpcproto;
+
+message IngestRequest {
+  string collection = 1;
+  string signature = 2;
+  string urn = 3;
+  bool public = 4;
+  optional string public_actions = 5;
+  optional string parent = 6;
+  optional bool nocopy = 7;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/je4/mediaserverapi/v2/pkg/grpcproto";
+option java_package = "ch.unibas.ub.mediaserver.api";
+option java_outer_classname = "ServiceProto";
+option java_multiple_files = true;
+option objc_class_prefix = "UBB";
+option csharp_namespace = "Unibas.UB.Mediaserver.API";
+
+package grpcproto;
+
+import "ingest.proto";
+import "defaultResponse.proto";
+
+service APIService {
+    rpc Ingest(IngestRequest) returns (DefaultResponse) {}
+}

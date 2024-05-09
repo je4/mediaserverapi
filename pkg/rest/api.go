@@ -1,4 +1,4 @@
-package api
+package rest
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/bluele/gcache"
 	"github.com/gin-gonic/gin"
-	"github.com/je4/mediaserverapi/v2/pkg/api/docs"
+	"github.com/je4/mediaserverapi/v2/pkg/rest/docs"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	swaggerFiles "github.com/swaggo/files"
@@ -77,6 +77,7 @@ type controller struct {
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1 := ctrl.router.Group(BASEPATH)
 	v1.GET("/ping", ctrl.ping)
+	v1.GET("/collection", ctrl.collections)
 	v1.GET("/collection/:collection", ctrl.collection)
 	v1.PUT("/collection/:collection", ctrl.createItem)
 	v1.GET("/storage/:storageid", ctrl.storage)
@@ -141,13 +142,13 @@ func (ctrl *controller) ping(c *gin.Context) {
 }
 
 type HTTPCollectionResultMessage struct {
-	Name            string `json:"identifier,omitempty"`
-	Description     string `json:"description,omitempty"`
-	SignaturePrefix string `json:"signature_prefix,omitempty"`
-	Secret          string `json:"secret,omitempty"`
-	Public          string `json:"public,omitempty"`
-	Jwtkey          string `json:"jwtkey,omitempty"`
-	Storageid       string `json:"storageid,omitempty"`
+	Name            string                    `json:"identifier,omitempty"`
+	Description     string                    `json:"description,omitempty"`
+	SignaturePrefix string                    `json:"signature_prefix,omitempty"`
+	Secret          string                    `json:"secret,omitempty"`
+	Public          string                    `json:"public,omitempty"`
+	Jwtkey          string                    `json:"jwtkey,omitempty"`
+	Storage         *HTTPStorageResultMessage `json:"storage,omitempty"`
 }
 
 // collection godoc
@@ -182,19 +183,68 @@ func (ctrl *controller) collection(c *gin.Context) {
 			return
 		}
 	}
+	stor := coll.GetStorage()
+	storResult := &HTTPStorageResultMessage{
+		Name:       stor.GetName(),
+		Filebase:   stor.GetFilebase(),
+		Datadir:    stor.GetDatadir(),
+		Subitemdir: stor.GetSubitemdir(),
+		Tempdir:    stor.GetTempdir(),
+	}
 	c.JSON(http.StatusOK, HTTPCollectionResultMessage{
-		Name:            coll.GetIdentifier().GetCollection(),
+		Name:            coll.GetName(),
 		Description:     coll.GetDescription(),
 		SignaturePrefix: coll.GetSignaturePrefix(),
 		Secret:          coll.GetSecret(),
 		Public:          coll.GetPublic(),
 		Jwtkey:          coll.GetJwtkey(),
-		Storageid:       coll.GetStorageid(),
+		Storage:         storResult,
 	})
 }
 
+// collections godoc
+// @Summary      gets collections data
+// @ID			 get-collections
+// @Description  retrieves mediaserver collections
+// @Tags         mediaserver
+// @Produce      json
+// @Success      200  {array}   HTTPCollectionResultMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      404  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /collection [get]
+func (ctrl *controller) collections(c *gin.Context) {
+
+	colls, err := ctrl.dbClient.GetCollections(context.Background(), &mediaserverdbproto.PageToken{Data: ""})
+	if err != nil {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get collection"))
+		return
+	}
+	result := []HTTPCollectionResultMessage{}
+	for _, coll := range colls.GetCollections() {
+		stor := coll.GetStorage()
+		storResult := &HTTPStorageResultMessage{
+			Name:       stor.GetName(),
+			Filebase:   stor.GetFilebase(),
+			Datadir:    stor.GetDatadir(),
+			Subitemdir: stor.GetSubitemdir(),
+			Tempdir:    stor.GetTempdir(),
+		}
+		result = append(result, HTTPCollectionResultMessage{
+			Name:            coll.GetName(),
+			Description:     coll.GetDescription(),
+			SignaturePrefix: coll.GetSignaturePrefix(),
+			Secret:          coll.GetSecret(),
+			Public:          coll.GetPublic(),
+			Jwtkey:          coll.GetJwtkey(),
+			Storage:         storResult,
+		})
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 type HTTPStorageResultMessage struct {
-	Id         string `json:"id,omitempty"`
 	Name       string `json:"name,omitempty"`
 	Filebase   string `json:"filebase,omitempty"`
 	Datadir    string `json:"datadir,omitempty"`
@@ -220,7 +270,7 @@ func (ctrl *controller) storage(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no storage id specified"))
 		return
 	}
-	storage, err := ctrl.dbClient.GetStorage(context.Background(), &mediaserverdbproto.StorageIdentifier{Id: storageid})
+	storage, err := ctrl.dbClient.GetStorage(context.Background(), &mediaserverdbproto.StorageIdentifier{Name: storageid})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
 			if status.Code() == codes.NotFound {
@@ -235,7 +285,6 @@ func (ctrl *controller) storage(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, HTTPStorageResultMessage{
-		Id:         storage.GetId(),
 		Name:       storage.GetName(),
 		Filebase:   storage.GetFilebase(),
 		Datadir:    storage.GetDatadir(),
@@ -244,12 +293,31 @@ func (ctrl *controller) storage(c *gin.Context) {
 	})
 }
 
+// CreateItemMessage represents the structure of the data required to create a new item.
+// This structure is used when the client sends a request to create a new item in the collection.
 type CreateItemMessage struct {
-	Signature     string `json:"signature"`
-	Urn           string `json:"path"`
-	Public        string `json:"public,omitempty"`
-	Parent        string `json:"parent,omitempty"`
+	// Signature is a unique identifier for the item within its collection.
+	Signature string `json:"signature" example:"10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip_10_3931_e-rara-20425_export_mets.xml"`
+
+	// Urn represents the path of the item. It is used to locate the item within the system.
+	Urn string `json:"path" example:"vfs://test/ub-reprofiler/mets-container-doi/bau_1/2023/9940561370105504/10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip/10_3931_e-rara-20425/export_mets.xml"`
+
+	// Public is an optional field that can be used to store any public data associated with the item.
+	Public bool `json:"public,omitempty" example:"true"`
+
+	// Parent is an optional field that represents the signature of the parent item, if any.
+	// This is used to establish a parent-child relationship between items.
+	Parent string `json:"parent,omitempty" example:"test/10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip_10_3931_e-rara-20425_export_mets.xml"`
+
+	// PublicActions is an optional field that can be used to store any public actions associated with the item.
 	PublicActions string `json:"public_actions,omitempty"`
+
+	// The type of ingest
+	// * keep: ingest without copy of data
+	// * copy: ingest with copy of data
+	// * move: ingest with copy of data and deletion after copy
+	// default: keep
+	IngestType string `json:"ingest_type,omitempty" example:"copy" enums:"keep,copy,move"`
 }
 
 // createItem godoc
@@ -302,15 +370,30 @@ func (ctrl *controller) createItem(c *gin.Context) {
 		return
 	}
 
+	var ingestType mediaserverdbproto.IngestType
+	switch item.IngestType {
+	case "":
+		ingestType = mediaserverdbproto.IngestType_KEEP
+	case "keep":
+		ingestType = mediaserverdbproto.IngestType_KEEP
+	case "copy":
+		ingestType = mediaserverdbproto.IngestType_COPY
+	case "move":
+		ingestType = mediaserverdbproto.IngestType_MOVE
+	default:
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("invalid ingest type %s", item.IngestType))
+		return
+	}
 	result, err := ctrl.dbClient.CreateItem(context.Background(), &mediaserverdbproto.NewItem{
 		Identifier: &mediaserverdbproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  item.Signature,
 		},
 		Urn:           item.Urn,
-		Public:        []byte(item.Public),
+		Public:        &item.Public,
 		Parent:        parent,
 		PublicActions: []byte(item.PublicActions),
+		IngestType:    &ingestType,
 	})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {

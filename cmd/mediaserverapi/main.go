@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/je4/mediaserverapi/v2/config"
-	"github.com/je4/mediaserverapi/v2/pkg/api"
+	"github.com/je4/mediaserverapi/v2/pkg/rest"
 	mediaserverdbClient "github.com/je4/mediaserverdb/v2/pkg/client"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
 	"github.com/je4/trustutil/v2/pkg/loader"
@@ -97,7 +97,7 @@ func main() {
 			logger.Info().Msgf("mediaserverdb ping response: %s", resp.GetMessage())
 		}
 	}
-	ctrl, err := api.NewController(conf.LocalAddr, conf.ExternalAddr, serverCert, dbClient, logger)
+	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, serverCert, dbClient, logger)
 	if err != nil {
 		logger.Fatal().Msgf("cannot create controller: %v", err)
 	}

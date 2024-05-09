@@ -1,0 +1,274 @@
+definitions:
+  rest.CreateItemMessage:
+    properties:
+      ingest_type:
+        description: |-
+          The type of ingest
+          * keep: ingest without copy of data
+          * copy: ingest with copy of data
+          * move: ingest with copy of data and deletion after copy
+          default: keep
+        enum:
+        - keep
+        - copy
+        - move
+        example: copy
+        type: string
+      parent:
+        description: |-
+          Parent is an optional field that represents the signature of the parent item, if any.
+          This is used to establish a parent-child relationship between items.
+        example: test/10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip_10_3931_e-rara-20425_export_mets.xml
+        type: string
+      path:
+        description: Urn represents the path of the item. It is used to locate the
+          item within the system.
+        example: vfs://test/ub-reprofiler/mets-container-doi/bau_1/2023/9940561370105504/10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip/10_3931_e-rara-20425/export_mets.xml
+        type: string
+      public:
+        description: Public is an optional field that can be used to store any public
+          data associated with the item.
+        example: true
+        type: boolean
+      public_actions:
+        description: PublicActions is an optional field that can be used to store
+          any public actions associated with the item.
+        type: string
+      signature:
+        description: Signature is a unique identifier for the item within its collection.
+        example: 10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip_10_3931_e-rara-20425_export_mets.xml
+        type: string
+    type: object
+  rest.HTTPCollectionResultMessage:
+    properties:
+      description:
+        type: string
+      identifier:
+        type: string
+      jwtkey:
+        type: string
+      public:
+        type: string
+      secret:
+        type: string
+      signature_prefix:
+        type: string
+      storage:
+        $ref: '#/definitions/rest.HTTPStorageResultMessage'
+    type: object
+  rest.HTTPIngestItemMessage:
+    properties:
+      collection:
+        type: string
+      path:
+        type: string
+      signature:
+        type: string
+    type: object
+  rest.HTTPResultMessage:
+    properties:
+      code:
+        example: 400
+        type: integer
+      message:
+        example: status bad request
+        type: string
+    type: object
+  rest.HTTPStorageResultMessage:
+    properties:
+      datadir:
+        type: string
+      filebase:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      subitemdir:
+        type: string
+      tempdir:
+        type: string
+    type: object
+info:
+  contact:
+    email: juergen.enge@unibas.ch
+    name: Jürgen Enge
+    url: https://ub.unibas.ch
+  description: Mediaserver API for managing collections and items
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Mediaserver API
+  version: "1.0"
+paths:
+  /collection:
+    get:
+      description: retrieves mediaserver collections
+      operationId: get-collections
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/rest.HTTPCollectionResultMessage'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      summary: gets collections data
+      tags:
+      - mediaserver
+  /collection/{collection}:
+    get:
+      description: retrieves mediaserver collection information
+      operationId: get-collection-by-name
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      summary: gets collection data
+      tags:
+      - mediaserver
+    put:
+      description: creates a new item for indexing
+      operationId: put-collection-item
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: new item to create
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/rest.CreateItemMessage'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      summary: creates new item
+      tags:
+      - mediaserver
+  /ingest:
+    get:
+      description: gets next item for indexing
+      operationId: get-ingest-item
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HTTPIngestItemMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      summary: next ingest item
+      tags:
+      - mediaserver
+  /ping:
+    get:
+      description: for testing if server is running
+      operationId: get-ping
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: does pong
+      tags:
+      - mediaserver
+  /storage/{storageid}:
+    get:
+      description: retrieves mediaserver storage information
+      operationId: get-storage-by-id
+      parameters:
+      - description: storage id
+        in: path
+        name: storageid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      summary: gets storage data
+      tags:
+      - mediaserver
+swagger: "2.0"
