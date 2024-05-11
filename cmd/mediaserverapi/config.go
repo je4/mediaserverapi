@@ -10,6 +10,7 @@ import (
 
 type MediaserverAPIConfig struct {
 	LocalAddr    string            `toml:"localaddr"`
+	ResolverAddr string            `toml:"resolveraddr"`
 	ExternalAddr string            `toml:"externaladdr"`
 	Server       *loader.TLSConfig `toml:"server"`
 	Client       *loader.TLSConfig `toml:"client"`

@@ -1,4 +1,5 @@
 localaddr = "localhost:8765"
+resolveraddr = "localhost:7777"
 externaladdr = "https://localhost:8765"
 loglevel = "DEBUG"
 

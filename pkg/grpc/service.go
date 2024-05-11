@@ -1,3 +1,5 @@
+//go:build never
+
 package grpc
 
 import (
@@ -47,9 +49,9 @@ func (api *mediaserverAPI) Ingest(ctx context.Context, item *grpcproto.IngestReq
 			Signature:  item.GetSignature(),
 		},
 		Urn:           item.Urn,
-		Public:        []byte(item.Public),
+		Public:        &item.Public,
 		Parent:        parent,
-		PublicActions: []byte(item.PublicActions),
+		PublicActions: []byte(item.GetPublicActions()),
 	})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {

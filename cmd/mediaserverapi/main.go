@@ -8,6 +8,9 @@ import (
 	"github.com/je4/mediaserverapi/v2/pkg/rest"
 	mediaserverdbClient "github.com/je4/mediaserverdb/v2/pkg/client"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
+	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
+	"github.com/je4/miniresolver/v2/pkg/grpchelper"
+	"github.com/je4/trustutil/v2/pkg/certutil"
 	"github.com/je4/trustutil/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"github.com/rs/zerolog"
@@ -74,20 +77,38 @@ func main() {
 	}
 	defer serverLoader.Close()
 
+	var dbClientAddr string
+	if conf.ResolverAddr != "" {
+		dbClientAddr = grpchelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
+		certutil.SetDefaultDNSNames([]string{"localhost", dbClientAddr})
+	} else {
+		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
+			logger.Fatal().Msg("no mediaserverdb grpc client defined")
+		}
+		dbClientAddr = conf.GRPCClient["mediaserverdb"]
+	}
+
 	clientCert, clientLoader, err := loader.CreateClientLoader(conf.Client, logger)
 	if err != nil {
 		logger.Panic().Msgf("cannot create client loader: %v", err)
 	}
 	defer clientLoader.Close()
 
-	if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
-		logger.Fatal().Msg("no mediaserverdb grpc client defined")
+	if conf.ResolverAddr != "" {
+		logger.Info().Msgf("resolver address is %s", conf.ResolverAddr)
+		miniResolverClient, miniResolverCloser, err := miniresolverClient.CreateClient(conf.ResolverAddr, clientCert)
+		if err != nil {
+			logger.Fatal().Msgf("cannot create resolver client: %v", err)
+		}
+		defer miniResolverCloser.Close()
+		grpchelper.RegisterResolver(miniResolverClient, logger)
 	}
-	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(conf.GRPCClient["mediaserverdb"], clientCert)
+
+	dbClient, dbClientCloser, err := mediaserverdbClient.CreateClient(dbClientAddr, clientCert)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdb grpc client: %v", err)
 	}
-	defer dbClientConn.Close()
+	defer dbClientCloser.Close()
 	if resp, err := dbClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
 		logger.Error().Msgf("cannot ping mediaserverdb: %v", err)
 	} else {
