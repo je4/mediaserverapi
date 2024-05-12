@@ -1,5 +1,6 @@
-localaddr = "localhost:8765"
-resolveraddr = "localhost:7777"
+localaddr = ":8765"
+resolveraddr = "[::1]:7777"
+resolvertimeout = "10m"
 externaladdr = "https://localhost:8765"
 loglevel = "DEBUG"
 

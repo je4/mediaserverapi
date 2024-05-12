@@ -4,19 +4,21 @@ import (
 	"emperror.dev/errors"
 	"github.com/BurntSushi/toml"
 	"github.com/je4/trustutil/v2/pkg/loader"
+	"github.com/je4/utils/v2/pkg/config"
 	"io/fs"
 	"os"
 )
 
 type MediaserverAPIConfig struct {
-	LocalAddr    string            `toml:"localaddr"`
-	ResolverAddr string            `toml:"resolveraddr"`
-	ExternalAddr string            `toml:"externaladdr"`
-	Server       *loader.TLSConfig `toml:"server"`
-	Client       *loader.TLSConfig `toml:"client"`
-	LogFile      string            `toml:"logfile"`
-	LogLevel     string            `toml:"loglevel"`
-	GRPCClient   map[string]string `toml:"grpcclient"`
+	LocalAddr       string            `toml:"localaddr"`
+	ResolverAddr    string            `toml:"resolveraddr"`
+	ResolverTimeout config.Duration   `toml:"resolvertimeout"`
+	ExternalAddr    string            `toml:"externaladdr"`
+	ServerTLS       *loader.TLSConfig `toml:"server"`
+	ClientTLS       *loader.TLSConfig `toml:"client"`
+	LogFile         string            `toml:"logfile"`
+	LogLevel        string            `toml:"loglevel"`
+	GRPCClient      map[string]string `toml:"grpcclient"`
 }
 
 func LoadMediaserverAPIConfig(fSys fs.FS, fp string, conf *MediaserverAPIConfig) error {
