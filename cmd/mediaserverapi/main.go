@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"github.com/je4/mediaserverapi/v2/config"
 	"github.com/je4/mediaserverapi/v2/pkg/rest"
-	mediaserverdbClient "github.com/je4/mediaserverdb/v2/pkg/client"
-	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
+	mediaserverdbClient "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/client"
+	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
 	"github.com/je4/miniresolver/v2/pkg/grpchelper"
 	"github.com/je4/trustutil/v2/pkg/loader"
+	configutil "github.com/je4/utils/v2/pkg/config"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -43,8 +44,10 @@ func main() {
 	conf := &MediaserverAPIConfig{
 		LocalAddr: "localhost:8443",
 		//ResolverTimeout: config.Duration(10 * time.Minute),
-		ExternalAddr: "https://localhost:8443",
-		LogLevel:     "DEBUG",
+		ExternalAddr:            "https://localhost:8443",
+		LogLevel:                "DEBUG",
+		ResolverTimeout:         configutil.Duration(10 * time.Minute),
+		ResolverNotFoundTimeout: configutil.Duration(10 * time.Second),
 		ServerTLS: &loader.TLSConfig{
 			Type: "DEV",
 		},
@@ -100,7 +103,7 @@ func main() {
 			logger.Fatal().Msgf("cannot create resolver client: %v", err)
 		}
 		defer miniResolverCloser.Close()
-		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), logger)
+		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
 	}
 
 	dbClient, dbClientCloser, err := mediaserverdbClient.CreateClient(dbClientAddr, clientCert)

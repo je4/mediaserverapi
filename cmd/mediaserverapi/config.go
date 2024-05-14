@@ -10,15 +10,16 @@ import (
 )
 
 type MediaserverAPIConfig struct {
-	LocalAddr       string            `toml:"localaddr"`
-	ResolverAddr    string            `toml:"resolveraddr"`
-	ResolverTimeout config.Duration   `toml:"resolvertimeout"`
-	ExternalAddr    string            `toml:"externaladdr"`
-	ServerTLS       *loader.TLSConfig `toml:"server"`
-	ClientTLS       *loader.TLSConfig `toml:"client"`
-	LogFile         string            `toml:"logfile"`
-	LogLevel        string            `toml:"loglevel"`
-	GRPCClient      map[string]string `toml:"grpcclient"`
+	LocalAddr               string            `toml:"localaddr"`
+	ExternalAddr            string            `toml:"externaladdr"`
+	ResolverAddr            string            `toml:"resolveraddr"`
+	ResolverTimeout         config.Duration   `toml:"resolvertimeout"`
+	ResolverNotFoundTimeout config.Duration   `toml:"resolvernotfoundtimeout"`
+	ServerTLS               *loader.TLSConfig `toml:"server"`
+	ClientTLS               *loader.TLSConfig `toml:"client"`
+	LogFile                 string            `toml:"logfile"`
+	LogLevel                string            `toml:"loglevel"`
+	GRPCClient              map[string]string `toml:"grpcclient"`
 }
 
 func LoadMediaserverAPIConfig(fSys fs.FS, fp string, conf *MediaserverAPIConfig) error {

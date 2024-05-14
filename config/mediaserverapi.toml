@@ -1,6 +1,7 @@
 localaddr = ":8765"
 resolveraddr = "[::1]:7777"
 resolvertimeout = "10m"
+resolvernotfoundtimeout = "10s"
 externaladdr = "https://localhost:8765"
 loglevel = "DEBUG"
 

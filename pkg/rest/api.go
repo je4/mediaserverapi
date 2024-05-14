@@ -8,7 +8,7 @@ import (
 	"github.com/bluele/gcache"
 	"github.com/gin-gonic/gin"
 	"github.com/je4/mediaserverapi/v2/pkg/rest/docs"
-	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
+	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
