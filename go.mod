@@ -1,20 +1,24 @@
 module github.com/je4/mediaserverapi/v2
 
-go 1.22.0
+go 1.22.2
 
 require (
 	emperror.dev/errors v0.8.1
 	github.com/BurntSushi/toml v1.3.2
 	github.com/bluele/gcache v0.0.2
 	github.com/gin-gonic/gin v1.9.1
-	github.com/je4/mediaserverdb/v2 v2.0.3
-	github.com/je4/trustutil/v2 v2.0.3
-	github.com/je4/utils/v2 v2.0.23
+	github.com/je4/genericproto/v2 v2.0.1
+	github.com/je4/mediaserverproto/v2 v2.0.2
+	github.com/je4/miniresolver/v2 v2.0.2
+	github.com/je4/trustutil/v2 v2.0.5
+	github.com/je4/utils/v2 v2.0.33
 	github.com/rs/zerolog v1.32.0
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.3
 	golang.org/x/net v0.22.0
+	google.golang.org/grpc v1.63.2
+	google.golang.org/protobuf v1.34.1
 )
 
 require (
@@ -33,7 +37,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.19.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
@@ -54,8 +57,6 @@ require (
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.19.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240311173647-c811ad7063a7 // indirect
-	google.golang.org/grpc v1.62.1 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

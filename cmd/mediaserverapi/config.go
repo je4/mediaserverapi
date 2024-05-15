@@ -15,6 +15,7 @@ type MediaserverAPIConfig struct {
 	ResolverAddr            string            `toml:"resolveraddr"`
 	ResolverTimeout         config.Duration   `toml:"resolvertimeout"`
 	ResolverNotFoundTimeout config.Duration   `toml:"resolvernotfoundtimeout"`
+	RESTTLS                 loader.TLSConfig  `toml:"resttls"`
 	ServerTLS               *loader.TLSConfig `toml:"server"`
 	ClientTLS               *loader.TLSConfig `toml:"client"`
 	LogFile                 string            `toml:"logfile"`

@@ -40,7 +40,7 @@ func (api *mediaserverAPI) Ingest(ctx context.Context, item *grpcproto.IngestReq
 		}
 	}
 	if strings.Contains(item.Signature, "/") {
-		return nil, status.Errorf(codes.InvalidArgument,"signature contains '/' character:  %s ", item.Signature))
+		return nil, status.Errorf(codes.InvalidArgument, "signature contains '/' character:  %s ", item.Signature)
 	}
 
 	result, err := api.dbClient.CreateItem(context.Background(), &mediaserverdbproto.NewItem{

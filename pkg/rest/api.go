@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/bluele/gcache"
 	"github.com/gin-gonic/gin"
+	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/mediaserverapi/v2/pkg/rest/docs"
 	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -215,13 +217,17 @@ func (ctrl *controller) collection(c *gin.Context) {
 // @Router       /collection [get]
 func (ctrl *controller) collections(c *gin.Context) {
 
-	colls, err := ctrl.dbClient.GetCollections(context.Background(), &mediaserverdbproto.PageToken{Data: ""})
+	colls, err := ctrl.dbClient.GetCollections(context.Background(), nil)
 	if err != nil {
 		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get collection"))
 		return
 	}
 	result := []HTTPCollectionResultMessage{}
-	for _, coll := range colls.GetCollections() {
+	for {
+		coll, err := colls.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		stor := coll.GetStorage()
 		storResult := &HTTPStorageResultMessage{
 			Name:       stor.GetName(),
@@ -360,7 +366,7 @@ func (ctrl *controller) createItem(c *gin.Context) {
 			NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot check parent %s", item.Parent))
 			return
 		}
-		if resp.GetStatus().Enum() != mediaserverdbproto.ResultStatus_OK.Enum() {
+		if resp.GetStatus().Enum() != genericproto.ResultStatus_OK.Enum() {
 			NewResultMessage(c, http.StatusBadRequest, errors.Errorf("parent %s does not exist", item.Parent))
 			return
 		}
@@ -405,7 +411,7 @@ func (ctrl *controller) createItem(c *gin.Context) {
 		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("create item %s/%s: %v", collection, item.Signature, err))
 		return
 	}
-	if result.Status.String() != mediaserverdbproto.ResultStatus_OK.String() {
+	if result.Status.String() != genericproto.ResultStatus_OK.String() {
 		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("cannot create item: %s/%s: %s", collection, item.Signature, result.Message))
 		return
 	}

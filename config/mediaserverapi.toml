@@ -8,6 +8,9 @@ loglevel = "DEBUG"
 [grpcclient]
 mediaserverdb = "localhost:7653"
 
+[resttls]
+type = "dev"
+
 [server]
 type = "dev"
 

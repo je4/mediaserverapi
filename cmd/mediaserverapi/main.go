@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/mediaserverapi/v2/config"
 	"github.com/je4/mediaserverapi/v2/pkg/rest"
 	mediaserverdbClient "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/client"
@@ -74,11 +75,19 @@ func main() {
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 
-	serverCert, serverLoader, err := loader.CreateServerLoader(false, conf.ServerTLS, nil, logger)
+	restTLSConfig, restLoader, err := loader.CreateServerLoader(true, &conf.RESTTLS, nil, logger)
 	if err != nil {
-		logger.Panic().Msgf("cannot create server loader: %v", err)
+		logger.Fatal().Err(err).Msg("cannot create server loader")
 	}
-	defer serverLoader.Close()
+	defer restLoader.Close()
+
+	/*
+		serverCert, serverLoader, err := loader.CreateServerLoader(false, conf.ServerTLS, nil, logger)
+		if err != nil {
+			logger.Panic().Msgf("cannot create server loader: %v", err)
+		}
+		defer serverLoader.Close()
+	*/
 
 	var dbClientAddr string
 	if conf.ResolverAddr != "" {
@@ -114,13 +123,13 @@ func main() {
 	if resp, err := dbClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
 		logger.Error().Msgf("cannot ping mediaserverdb: %v", err)
 	} else {
-		if resp.GetStatus() != mediaserverdbproto.ResultStatus_OK {
+		if resp.GetStatus() != genericproto.ResultStatus_OK {
 			logger.Error().Msgf("cannot ping mediaserverdb: %v", resp.GetStatus())
 		} else {
 			logger.Info().Msgf("mediaserverdb ping response: %s", resp.GetMessage())
 		}
 	}
-	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, serverCert, dbClient, logger)
+	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, dbClient, logger)
 	if err != nil {
 		logger.Fatal().Msgf("cannot create controller: %v", err)
 	}
