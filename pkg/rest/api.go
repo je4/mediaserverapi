@@ -38,7 +38,11 @@ const BASEPATH = "/api/v1"
 //	@license.name	Apache 2.0
 //	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
 
-func NewController(addr, extAddr string, tlsConfig *tls.Config, dbClient mediaserverdbproto.DBControllerClient, logger zLogger.ZLogger) (*controller, error) {
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
+func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, dbClient mediaserverdbproto.DBControllerClient, logger zLogger.ZLogger) (*controller, error) {
 	u, err := url.Parse(extAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid external address '%s'", extAddr)
@@ -59,6 +63,7 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, dbClient mediase
 		cache:    gcache.New(100).LRU().Build(),
 		logger:   logger,
 		dbClient: dbClient,
+		bearer:   bearer,
 	}
 	if err := c.Init(tlsConfig); err != nil {
 		return nil, errors.Wrap(err, "cannot initialize rest controller")
@@ -74,10 +79,30 @@ type controller struct {
 	cache    gcache.Cache
 	logger   zLogger.ZLogger
 	dbClient mediaserverdbproto.DBControllerClient
+	bearer   string
 }
 
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1 := ctrl.router.Group(BASEPATH)
+	v1.Use(func(c *gin.Context) {
+		authHeader := c.Request.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, HTTPResultMessage{
+				Code:    http.StatusUnauthorized,
+				Message: "no bearer token found",
+			})
+			return
+		}
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token != ctrl.bearer {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, HTTPResultMessage{
+				Code:    http.StatusUnauthorized,
+				Message: "invalid bearer token",
+			})
+			return
+
+		}
+	})
 	v1.GET("/ping", ctrl.ping)
 	v1.GET("/collection", ctrl.collections)
 	v1.GET("/collection/:collection", ctrl.collection)
@@ -158,10 +183,12 @@ type HTTPCollectionResultMessage struct {
 // @ID			 get-collection-by-name
 // @Description  retrieves mediaserver collection information
 // @Tags         mediaserver
+// @Security 	 BearerAuth
 // @Produce      json
 // @Param		 collection path string true "collection name"
 // @Success      200  {string}  HTTPCollectionResultMessage
 // @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
 // @Router       /collection/{collection} [get]
@@ -209,9 +236,11 @@ func (ctrl *controller) collection(c *gin.Context) {
 // @ID			 get-collections
 // @Description  retrieves mediaserver collections
 // @Tags         mediaserver
+// @Security 	 BearerAuth
 // @Produce      json
 // @Success      200  {array}   HTTPCollectionResultMessage
 // @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
 // @Router       /collection [get]
@@ -263,10 +292,12 @@ type HTTPStorageResultMessage struct {
 // @ID			 get-storage-by-id
 // @Description  retrieves mediaserver storage information
 // @Tags         mediaserver
+// @Security 	 BearerAuth
 // @Produce      json
 // @Param		 storageid path string true "storage id"
 // @Success      200  {string}  HTTPStorageResultMessage
 // @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
 // @Router       /storage/{storageid} [get]
@@ -331,11 +362,13 @@ type CreateItemMessage struct {
 // @ID			 put-collection-item
 // @Description  creates a new item for indexing
 // @Tags         mediaserver
+// @Security 	 BearerAuth
 // @Produce      json
 // @Param		 collection path string true "collection name"
 // @Param 		 item       body CreateItemMessage true "new item to create"
 // @Success      200  {object}  HTTPResultMessage
 // @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
 // @Router       /collection/{collection} [put]
@@ -432,9 +465,11 @@ type HTTPIngestItemMessage struct {
 // @ID			 get-ingest-item
 // @Description  gets next item for indexing
 // @Tags         mediaserver
+// @Security 	 BearerAuth
 // @Produce      json
 // @Success      200  {object}  HTTPIngestItemMessage
 // @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
 // @Router       /ingest [get]

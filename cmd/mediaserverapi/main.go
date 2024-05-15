@@ -75,7 +75,7 @@ func main() {
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 
-	restTLSConfig, restLoader, err := loader.CreateServerLoader(true, &conf.RESTTLS, nil, logger)
+	restTLSConfig, restLoader, err := loader.CreateServerLoader(false, &conf.RESTTLS, nil, logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("cannot create server loader")
 	}
@@ -129,7 +129,7 @@ func main() {
 			logger.Info().Msgf("mediaserverdb ping response: %s", resp.GetMessage())
 		}
 	}
-	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, dbClient, logger)
+	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, logger)
 	if err != nil {
 		logger.Fatal().Msgf("cannot create controller: %v", err)
 	}

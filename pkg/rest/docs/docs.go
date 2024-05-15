@@ -26,6 +26,11 @@ const docTemplate = `{
     "paths": {
         "/collection": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "retrieves mediaserver collections",
                 "produces": [
                     "application/json"
@@ -51,6 +56,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -68,6 +79,11 @@ const docTemplate = `{
         },
         "/collection/{collection}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "retrieves mediaserver collection information",
                 "produces": [
                     "application/json"
@@ -99,6 +115,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -114,6 +136,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "creates a new item for indexing",
                 "produces": [
                     "application/json"
@@ -154,6 +181,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -171,6 +204,11 @@ const docTemplate = `{
         },
         "/ingest": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "gets next item for indexing",
                 "produces": [
                     "application/json"
@@ -189,6 +227,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
@@ -231,6 +275,11 @@ const docTemplate = `{
         },
         "/storage/{storageid}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "retrieves mediaserver storage information",
                 "produces": [
                     "application/json"
@@ -258,6 +307,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
@@ -380,9 +435,6 @@ const docTemplate = `{
                 "filebase": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
@@ -393,6 +445,13 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

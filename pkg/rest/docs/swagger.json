@@ -18,6 +18,11 @@
     "paths": {
         "/collection": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "retrieves mediaserver collections",
                 "produces": [
                     "application/json"
@@ -43,6 +48,12 @@
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -60,6 +71,11 @@
         },
         "/collection/{collection}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "retrieves mediaserver collection information",
                 "produces": [
                     "application/json"
@@ -91,6 +107,12 @@
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -106,6 +128,11 @@
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "creates a new item for indexing",
                 "produces": [
                     "application/json"
@@ -146,6 +173,12 @@
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -163,6 +196,11 @@
         },
         "/ingest": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "gets next item for indexing",
                 "produces": [
                     "application/json"
@@ -181,6 +219,12 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
@@ -223,6 +267,11 @@
         },
         "/storage/{storageid}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "retrieves mediaserver storage information",
                 "produces": [
                     "application/json"
@@ -250,6 +299,12 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }
@@ -372,9 +427,6 @@
                 "filebase": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
@@ -385,6 +437,13 @@
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }
