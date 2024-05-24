@@ -254,9 +254,14 @@ func (ctrl *controller) collections(c *gin.Context) {
 	result := []HTTPCollectionResultMessage{}
 	for {
 		coll, err := colls.Recv()
-		if errors.Is(err, io.EOF) {
-			break
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get collection"))
+			return
 		}
+
 		stor := coll.GetStorage()
 		storResult := &HTTPStorageResultMessage{
 			Name:       stor.GetName(),
