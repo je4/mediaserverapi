@@ -100,6 +100,59 @@ info:
   title: Mediaserver API
   version: "1.0"
 paths:
+  /cache/{collection}/{signature}/{action}/{params}:
+    get:
+      description: gets cache data
+      operationId: get-collection-signature-action-params-cache
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: signature
+        in: path
+        name: signature
+        required: true
+        type: string
+      - description: action
+        in: path
+        name: action
+        required: true
+        type: string
+      - description: params
+        in: path
+        name: params
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      security:
+      - BearerAuth: []
+      summary: get cache metadata
+      tags:
+      - mediaserver
   /collection:
     get:
       description: retrieves mediaserver collections

@@ -7,8 +7,12 @@ import (
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/mediaserverapi/v2/config"
 	"github.com/je4/mediaserverapi/v2/pkg/rest"
+	mediaserveractionClient "github.com/je4/mediaserverproto/v2/pkg/mediaserveraction/client"
+	mediaserveractionproto "github.com/je4/mediaserverproto/v2/pkg/mediaserveraction/proto"
 	mediaserverdbClient "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/client"
 	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
+	mediaserverdeleterClient "github.com/je4/mediaserverproto/v2/pkg/mediaserverdeleter/client"
+	mediaserverdeleterproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdeleter/proto"
 	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
 	"github.com/je4/miniresolver/v2/pkg/grpchelper"
 	"github.com/je4/trustutil/v2/pkg/loader"
@@ -89,14 +93,24 @@ func main() {
 		defer serverLoader.Close()
 	*/
 
-	var dbClientAddr string
+	var dbClientAddr, deleterClientAddr, actionControllerAddr string
 	if conf.ResolverAddr != "" {
 		dbClientAddr = grpchelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
+		deleterClientAddr = grpchelper.GetAddress(mediaserverdeleterproto.DeleterController_Ping_FullMethodName)
+		actionControllerAddr = grpchelper.GetAddress(mediaserveractionproto.ActionController_Ping_FullMethodName)
 	} else {
 		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
 			logger.Fatal().Msg("no mediaserverdb grpc client defined")
 		}
-		dbClientAddr = conf.GRPCClient["mediaserverdb"]
+		dbClientAddr = conf.GRPCClient["mediaserverdeleter"]
+		if _, ok := conf.GRPCClient["mediaserverdeleter"]; !ok {
+			logger.Fatal().Msg("no mediaserverdeleter grpc client defined")
+		}
+		deleterClientAddr = conf.GRPCClient["mediaserverdeleter"]
+		if _, ok := conf.GRPCClient["mediaserveraction"]; !ok {
+			logger.Fatal().Msg("no mediaserveraction grpc client defined")
+		}
+		actionControllerAddr = conf.GRPCClient["mediaserveraction"]
 	}
 
 	clientCert, clientLoader, err := loader.CreateClientLoader(conf.ClientTLS, logger)
@@ -129,7 +143,38 @@ func main() {
 			logger.Info().Msgf("mediaserverdb ping response: %s", resp.GetMessage())
 		}
 	}
-	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, logger)
+
+	deleterClient, deleterClientCloser, err := mediaserverdeleterClient.CreateClient(deleterClientAddr, clientCert)
+	if err != nil {
+		logger.Panic().Msgf("cannot create mediaserverdeleter grpc client: %v", err)
+	}
+	defer deleterClientCloser.Close()
+	if resp, err := deleterClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
+		logger.Error().Msgf("cannot ping mediaserverdeleter: %v", err)
+	} else {
+		if resp.GetStatus() != genericproto.ResultStatus_OK {
+			logger.Error().Msgf("cannot ping mediaserverdeleter: %v", resp.GetStatus())
+		} else {
+			logger.Info().Msgf("mediaserverdeleter ping response: %s", resp.GetMessage())
+		}
+	}
+
+	actionControllerClient, actionControllerClientCloser, err := mediaserveractionClient.CreateControllerClient(actionControllerAddr, clientCert)
+	if err != nil {
+		logger.Panic().Msgf("cannot create mediaserveractionController grpc client: %v", err)
+	}
+	defer actionControllerClientCloser.Close()
+	if resp, err := actionControllerClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
+		logger.Error().Msgf("cannot ping mediaserveractionController: %v", err)
+	} else {
+		if resp.GetStatus() != genericproto.ResultStatus_OK {
+			logger.Error().Msgf("cannot ping mediaserveractionController: %v", resp.GetStatus())
+		} else {
+			logger.Info().Msgf("mediaserveractionController ping response: %s", resp.GetMessage())
+		}
+	}
+
+	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, actionControllerClient, deleterClient, logger)
 	if err != nil {
 		logger.Fatal().Msgf("cannot create controller: %v", err)
 	}

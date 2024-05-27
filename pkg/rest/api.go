@@ -8,8 +8,11 @@ import (
 	"github.com/bluele/gcache"
 	"github.com/gin-gonic/gin"
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
+	"github.com/je4/mediaserveraction/v2/pkg/actionCache"
 	"github.com/je4/mediaserverapi/v2/pkg/rest/docs"
+	mediaserveractionproto "github.com/je4/mediaserverproto/v2/pkg/mediaserveraction/proto"
 	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
+	mediaserverdeleterproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdeleter/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -42,7 +45,11 @@ const BASEPATH = "/api/v1"
 // @in header
 // @name Authorization
 
-func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, dbClient mediaserverdbproto.DBControllerClient, logger zLogger.ZLogger) (*controller, error) {
+func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string,
+	dbClient mediaserverdbproto.DBControllerClient,
+	actionControllerClient mediaserveractionproto.ActionControllerClient,
+	deleterControllerClient mediaserverdeleterproto.DeleterControllerClient,
+	logger zLogger.ZLogger) (*controller, error) {
 	u, err := url.Parse(extAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid external address '%s'", extAddr)
@@ -57,13 +64,16 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, d
 	router := gin.Default()
 
 	c := &controller{
-		addr:     addr,
-		router:   router,
-		subpath:  subpath,
-		cache:    gcache.New(100).LRU().Build(),
-		logger:   logger,
-		dbClient: dbClient,
-		bearer:   bearer,
+		addr:                    addr,
+		router:                  router,
+		subpath:                 subpath,
+		cache:                   gcache.New(100).LRU().Build(),
+		logger:                  logger,
+		dbClient:                dbClient,
+		actionControllerClient:  actionControllerClient,
+		deleterControllerClient: deleterControllerClient,
+		bearer:                  bearer,
+		actionParams:            map[string][]string{},
 	}
 	if err := c.Init(tlsConfig); err != nil {
 		return nil, errors.Wrap(err, "cannot initialize rest controller")
@@ -72,14 +82,17 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, d
 }
 
 type controller struct {
-	server   http.Server
-	router   *gin.Engine
-	addr     string
-	subpath  string
-	cache    gcache.Cache
-	logger   zLogger.ZLogger
-	dbClient mediaserverdbproto.DBControllerClient
-	bearer   string
+	server                  http.Server
+	router                  *gin.Engine
+	addr                    string
+	subpath                 string
+	cache                   gcache.Cache
+	logger                  zLogger.ZLogger
+	dbClient                mediaserverdbproto.DBControllerClient
+	actionControllerClient  mediaserveractionproto.ActionControllerClient
+	deleterControllerClient mediaserverdeleterproto.DeleterControllerClient
+	bearer                  string
+	actionParams            map[string][]string
 }
 
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
@@ -107,6 +120,10 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1.GET("/collection", ctrl.collections)
 	v1.GET("/collection/:collection", ctrl.collection)
 	v1.PUT("/collection/:collection", ctrl.createItem)
+	v1.GET("/cache/:collection/:signature/:action", ctrl.getCache)
+	v1.GET("/cache/:collection/:signature/:action/*params", ctrl.getCache)
+	v1.DELETE("/cache/:collection/:signature/:action", ctrl.deleteCache)
+	v1.DELETE("/cache/:collection/:signature/:action/*params", ctrl.deleteCache)
 	v1.GET("/storage/:storageid", ctrl.storage)
 	v1.GET("/ingest", ctrl.getIngestItem)
 
@@ -494,5 +511,129 @@ func (ctrl *controller) getIngestItem(c *gin.Context) {
 		Collection: result.GetIdentifier().GetCollection(),
 		Signature:  result.GetIdentifier().GetSignature(),
 		Urn:        result.GetUrn(),
+	})
+}
+
+func (ctrl *controller) getParams(mediaType string, action string) ([]string, error) {
+	sig := fmt.Sprintf("%s::%s", mediaType, action)
+	if params, ok := ctrl.actionParams[sig]; ok {
+		return params, nil
+	}
+	resp, err := ctrl.actionControllerClient.GetParams(context.Background(), &mediaserveractionproto.ParamsParam{
+		Type:   mediaType,
+		Action: action,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get params for %s::%s", mediaType, action)
+	}
+	ctrl.logger.Debug().Msgf("params for %s::%s: %v", mediaType, action, resp.GetValues())
+	ctrl.actionParams[sig] = resp.GetValues()
+	return resp.GetValues(), nil
+}
+
+// createItem godoc
+// @Summary      get cache metadata
+// @ID			 get-collection-signature-action-params-cache
+// @Description  gets cache data
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Produce      json
+// @Param		 collection path string true "collection name"
+// @Param		 signature path string true "signature"
+// @Param		 action path string true "action"
+// @Param		 params path string true "params"
+// @Success      200  {object}  any
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
+// @Failure      404  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /cache/{collection}/{signature}/{action}/{params} [get]
+func (ctrl *controller) getCache(c *gin.Context) {
+	collection := c.Param("collection")
+	if collection == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
+		return
+	}
+	signature := c.Param("signature")
+	if signature == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
+		return
+	}
+	action := c.Param("action")
+	if action == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no action specified"))
+		return
+	}
+	params := c.Param("params")
+
+	item, err := ctrl.dbClient.GetItem(context.Background(), &mediaserverdbproto.ItemIdentifier{
+		Collection: collection,
+		Signature:  signature,
+	})
+	if err != nil {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get item %s/%s", collection, signature))
+		return
+	}
+
+	ps := actionCache.ActionParams{}
+	aparams, err := ctrl.getParams(item.GetMetadata().GetType(), action)
+	if err != nil {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get params for %s::%s", collection, action))
+		return
+	}
+	ps.SetString(params, aparams)
+
+	resp, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverdbproto.CacheRequest{
+		Identifier: &mediaserverdbproto.ItemIdentifier{
+			Collection: collection,
+			Signature:  signature,
+		},
+		Action: action,
+		Params: ps.String(),
+	})
+	if err != nil {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot delete cache for %s/%s/%s/%s", collection, signature, action, params))
+		return
+	}
+	c.JSON(http.StatusOK, resp.GetMetadata())
+}
+
+func (ctrl *controller) deleteCache(c *gin.Context) {
+	collection := c.Param("collection")
+	if collection == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
+		return
+	}
+	signature := c.Param("signature")
+	if signature == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
+		return
+	}
+	action := c.Param("action")
+	if action == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no action specified"))
+		return
+	}
+	params := c.Param("params")
+
+	resp, err := ctrl.deleterControllerClient.DeleteCache(context.Background(), &mediaserverdbproto.CacheRequest{
+		Identifier: &mediaserverdbproto.ItemIdentifier{
+			Collection: collection,
+			Signature:  signature,
+		},
+		Action: action,
+		Params: params,
+	})
+	if err != nil {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot delete cache for %s/%s/%s/%s", collection, signature, action, params))
+		return
+	}
+	if resp.Status.String() != genericproto.ResultStatus_OK.String() {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("cannot delete cache for %s/%s/%s/%s: %s", collection, signature, action, params, resp.Message))
+		return
+	}
+	c.JSON(http.StatusOK, HTTPResultMessage{
+		Code:    int(resp.GetStatus()),
+		Message: resp.Message,
 	})
 }
