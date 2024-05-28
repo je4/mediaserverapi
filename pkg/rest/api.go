@@ -10,9 +10,7 @@ import (
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/mediaserveraction/v2/pkg/actionCache"
 	"github.com/je4/mediaserverapi/v2/pkg/rest/docs"
-	mediaserveractionproto "github.com/je4/mediaserverproto/v2/pkg/mediaserveraction/proto"
-	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
-	mediaserverdeleterproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdeleter/proto"
+	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -46,9 +44,9 @@ const BASEPATH = "/api/v1"
 // @name Authorization
 
 func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string,
-	dbClient mediaserverdbproto.DBControllerClient,
-	actionControllerClient mediaserveractionproto.ActionControllerClient,
-	deleterControllerClient mediaserverdeleterproto.DeleterControllerClient,
+	dbClient mediaserverproto.DatabaseClient,
+	actionControllerClient mediaserverproto.ActionClient,
+	deleterControllerClient mediaserverproto.DeleterClient,
 	logger zLogger.ZLogger) (*controller, error) {
 	u, err := url.Parse(extAddr)
 	if err != nil {
@@ -88,9 +86,9 @@ type controller struct {
 	subpath                 string
 	cache                   gcache.Cache
 	logger                  zLogger.ZLogger
-	dbClient                mediaserverdbproto.DBControllerClient
-	actionControllerClient  mediaserveractionproto.ActionControllerClient
-	deleterControllerClient mediaserverdeleterproto.DeleterControllerClient
+	dbClient                mediaserverproto.DatabaseClient
+	actionControllerClient  mediaserverproto.ActionClient
+	deleterControllerClient mediaserverproto.DeleterClient
 	bearer                  string
 	actionParams            map[string][]string
 }
@@ -215,7 +213,7 @@ func (ctrl *controller) collection(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection specified"))
 		return
 	}
-	coll, err := ctrl.dbClient.GetCollection(context.Background(), &mediaserverdbproto.CollectionIdentifier{Collection: collection})
+	coll, err := ctrl.dbClient.GetCollection(context.Background(), &mediaserverproto.CollectionIdentifier{Collection: collection})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
 			if status.Code() == codes.NotFound {
@@ -329,7 +327,7 @@ func (ctrl *controller) storage(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no storage id specified"))
 		return
 	}
-	storage, err := ctrl.dbClient.GetStorage(context.Background(), &mediaserverdbproto.StorageIdentifier{Name: storageid})
+	storage, err := ctrl.dbClient.GetStorage(context.Background(), &mediaserverproto.StorageIdentifier{Name: storageid})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
 			if status.Code() == codes.NotFound {
@@ -405,14 +403,14 @@ func (ctrl *controller) createItem(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.Wrap(err, "cannot bind item"))
 		return
 	}
-	var parent *mediaserverdbproto.ItemIdentifier
+	var parent *mediaserverproto.ItemIdentifier
 	if item.Parent != "" {
 		parts := strings.SplitN(item.Parent, "/", 2)
 		if len(parts) != 2 {
 			NewResultMessage(c, http.StatusBadRequest, errors.Errorf("invalid parent %s", item.Parent))
 			return
 		}
-		parent = &mediaserverdbproto.ItemIdentifier{
+		parent = &mediaserverproto.ItemIdentifier{
 			Collection: parts[0],
 			Signature:  parts[1],
 		}
@@ -431,22 +429,22 @@ func (ctrl *controller) createItem(c *gin.Context) {
 		return
 	}
 
-	var ingestType mediaserverdbproto.IngestType
+	var ingestType mediaserverproto.IngestType
 	switch item.IngestType {
 	case "":
-		ingestType = mediaserverdbproto.IngestType_KEEP
+		ingestType = mediaserverproto.IngestType_KEEP
 	case "keep":
-		ingestType = mediaserverdbproto.IngestType_KEEP
+		ingestType = mediaserverproto.IngestType_KEEP
 	case "copy":
-		ingestType = mediaserverdbproto.IngestType_COPY
+		ingestType = mediaserverproto.IngestType_COPY
 	case "move":
-		ingestType = mediaserverdbproto.IngestType_MOVE
+		ingestType = mediaserverproto.IngestType_MOVE
 	default:
 		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("invalid ingest type %s", item.IngestType))
 		return
 	}
-	result, err := ctrl.dbClient.CreateItem(context.Background(), &mediaserverdbproto.NewItem{
-		Identifier: &mediaserverdbproto.ItemIdentifier{
+	result, err := ctrl.dbClient.CreateItem(context.Background(), &mediaserverproto.NewItem{
+		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  item.Signature,
 		},
@@ -519,7 +517,7 @@ func (ctrl *controller) getParams(mediaType string, action string) ([]string, er
 	if params, ok := ctrl.actionParams[sig]; ok {
 		return params, nil
 	}
-	resp, err := ctrl.actionControllerClient.GetParams(context.Background(), &mediaserveractionproto.ParamsParam{
+	resp, err := ctrl.actionControllerClient.GetParams(context.Background(), &mediaserverproto.ParamsParam{
 		Type:   mediaType,
 		Action: action,
 	})
@@ -566,7 +564,7 @@ func (ctrl *controller) getCache(c *gin.Context) {
 	}
 	params := c.Param("params")
 
-	item, err := ctrl.dbClient.GetItem(context.Background(), &mediaserverdbproto.ItemIdentifier{
+	item, err := ctrl.dbClient.GetItem(context.Background(), &mediaserverproto.ItemIdentifier{
 		Collection: collection,
 		Signature:  signature,
 	})
@@ -583,8 +581,8 @@ func (ctrl *controller) getCache(c *gin.Context) {
 	}
 	ps.SetString(params, aparams)
 
-	resp, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverdbproto.CacheRequest{
-		Identifier: &mediaserverdbproto.ItemIdentifier{
+	resp, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
+		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  signature,
 		},
@@ -616,8 +614,8 @@ func (ctrl *controller) deleteCache(c *gin.Context) {
 	}
 	params := c.Param("params")
 
-	resp, err := ctrl.deleterControllerClient.DeleteCache(context.Background(), &mediaserverdbproto.CacheRequest{
-		Identifier: &mediaserverdbproto.ItemIdentifier{
+	resp, err := ctrl.deleterControllerClient.DeleteCache(context.Background(), &mediaserverproto.CacheRequest{
+		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  signature,
 		},
