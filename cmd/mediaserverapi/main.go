@@ -100,13 +100,13 @@ func main() {
 	}
 	resolver.DoPing(dbClient, logger)
 
-	deleterClient, err := resolver.NewClient[mediaserverproto.DeleterClient](miniResolverClient, mediaserverproto.NewDeleterClient, mediaserverproto.Database_ServiceDesc.ServiceName)
+	deleterClient, err := resolver.NewClient[mediaserverproto.DeleterClient](miniResolverClient, mediaserverproto.NewDeleterClient, mediaserverproto.Deleter_ServiceDesc.ServiceName)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdeleter grpc client: %v", err)
 	}
 	resolver.DoPing(dbClient, logger)
 
-	actionControllerClient, err := resolver.NewClient[mediaserverproto.ActionClient](miniResolverClient, mediaserverproto.NewActionClient, mediaserverproto.Database_ServiceDesc.ServiceName)
+	actionControllerClient, err := resolver.NewClient[mediaserverproto.ActionClient](miniResolverClient, mediaserverproto.NewActionClient, mediaserverproto.Action_ServiceDesc.ServiceName)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserveractionController grpc client: %v", err)
 	}
