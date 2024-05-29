@@ -5,7 +5,6 @@ package grpc
 import (
 	"context"
 	"github.com/je4/mediaserverapi/v2/pkg/grpcproto"
-	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
