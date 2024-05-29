@@ -6,8 +6,6 @@ resolvernotfoundtimeout = "10s"
 externaladdr = "https://localhost:8765"
 loglevel = "DEBUG"
 
-[grpcclient]
-mediaserverdb = "localhost:7653"
 
 [resttls]
 type = "dev"
