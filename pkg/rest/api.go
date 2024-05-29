@@ -95,6 +95,9 @@ type controller struct {
 
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1 := ctrl.router.Group(BASEPATH)
+
+	v1.GET("/ping", ctrl.ping)
+
 	v1.Use(func(c *gin.Context) {
 		authHeader := c.Request.Header.Get("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -114,7 +117,6 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 
 		}
 	})
-	v1.GET("/ping", ctrl.ping)
 	v1.GET("/collection", ctrl.collections)
 	v1.GET("/collection/:collection", ctrl.collection)
 	v1.PUT("/collection/:collection", ctrl.createItem)
