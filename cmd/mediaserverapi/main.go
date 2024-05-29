@@ -1,21 +1,16 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
-	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/mediaserverapi/v2/config"
 	"github.com/je4/mediaserverapi/v2/pkg/rest"
-	mediaserverclient "github.com/je4/mediaserverproto/v2/pkg/mediaserver/client"
 	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
-	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
-	"github.com/je4/miniresolver/v2/pkg/grpchelper"
+	"github.com/je4/miniresolver/v2/pkg/resolver"
 	"github.com/je4/trustutil/v2/pkg/loader"
 	configutil "github.com/je4/utils/v2/pkg/config"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"github.com/rs/zerolog"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"io/fs"
 	"log"
@@ -70,8 +65,13 @@ func main() {
 		out = fp
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("cannot get hostname: %v", err)
+	}
+
 	output := zerolog.ConsoleWriter{Out: out, TimeFormat: time.RFC3339}
-	_logger := zerolog.New(output).With().Timestamp().Logger()
+	_logger := zerolog.New(output).With().Timestamp().Str("service", "mediaserverapi"). /*.Array("addrs", zLogger.StringArray(addrStr))*/ Str("host", hostname).Str("addr", conf.LocalAddr).Logger()
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 
@@ -81,94 +81,36 @@ func main() {
 	}
 	defer restLoader.Close()
 
-	/*
-		serverCert, serverLoader, err := loader.CreateServerLoader(false, conf.ServerTLS, nil, logger)
-		if err != nil {
-			logger.Panic().Msgf("cannot create server loader: %v", err)
-		}
-		defer serverLoader.Close()
-	*/
-
-	var dbClientAddr, deleterClientAddr, actionControllerAddr string
-	if conf.ResolverAddr != "" {
-		dbClientAddr = grpchelper.GetAddress(mediaserverproto.Database_Ping_FullMethodName)
-		deleterClientAddr = grpchelper.GetAddress(mediaserverproto.Deleter_Ping_FullMethodName)
-		actionControllerAddr = grpchelper.GetAddress(mediaserverproto.Action_Ping_FullMethodName)
-	} else {
-		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
-			logger.Fatal().Msg("no mediaserverdb grpc client defined")
-		}
-		dbClientAddr = conf.GRPCClient["mediaserverdeleter"]
-		if _, ok := conf.GRPCClient["mediaserverdeleter"]; !ok {
-			logger.Fatal().Msg("no mediaserverdeleter grpc client defined")
-		}
-		deleterClientAddr = conf.GRPCClient["mediaserverdeleter"]
-		if _, ok := conf.GRPCClient["mediaserveraction"]; !ok {
-			logger.Fatal().Msg("no mediaserveraction grpc client defined")
-		}
-		actionControllerAddr = conf.GRPCClient["mediaserveraction"]
-	}
-
 	clientCert, clientLoader, err := loader.CreateClientLoader(conf.ClientTLS, logger)
 	if err != nil {
 		logger.Panic().Msgf("cannot create client loader: %v", err)
 	}
 	defer clientLoader.Close()
 
-	if conf.ResolverAddr != "" {
-		logger.Info().Msgf("resolver address is %s", conf.ResolverAddr)
-		miniResolverClient, miniResolverCloser, err := miniresolverClient.CreateClient(conf.ResolverAddr, clientCert)
-		if err != nil {
-			logger.Fatal().Msgf("cannot create resolver client: %v", err)
-		}
-		defer miniResolverCloser.Close()
-		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
-	}
-
-	dbClient, dbClientCloser, err := mediaserverclient.NewDatabaseClient(dbClientAddr, clientCert)
+	logger.Info().Msgf("resolver address is %s", conf.ResolverAddr)
+	miniResolverClient, err := resolver.NewMiniresolverClient(conf.ResolverAddr, conf.GRPCClient, clientCert, nil, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
 	if err != nil {
-		logger.Panic().Msgf("cannot create mediaserverdb grpc client: %v", err)
+		logger.Fatal().Msgf("cannot create resolver client: %v", err)
 	}
-	defer dbClientCloser.Close()
-	if resp, err := dbClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
-		logger.Error().Msgf("cannot ping mediaserverdb: %v", err)
-	} else {
-		if resp.GetStatus() != genericproto.ResultStatus_OK {
-			logger.Error().Msgf("cannot ping mediaserverdb: %v", resp.GetStatus())
-		} else {
-			logger.Info().Msgf("mediaserverdb ping response: %s", resp.GetMessage())
-		}
-	}
+	defer miniResolverClient.Close()
 
-	deleterClient, deleterClientCloser, err := mediaserverclient.NewDeleterClient(deleterClientAddr, clientCert)
+	dbClient, err := resolver.NewClient[mediaserverproto.DatabaseClient](miniResolverClient, mediaserverproto.NewDatabaseClient, mediaserverproto.Database_ServiceDesc.ServiceName)
+	if err != nil {
+		logger.Panic().Msgf("cannot create mediaserverdatabase grpc client: %v", err)
+	}
+	resolver.DoPing(dbClient, logger)
+
+	deleterClient, err := resolver.NewClient[mediaserverproto.DeleterClient](miniResolverClient, mediaserverproto.NewDeleterClient, mediaserverproto.Database_ServiceDesc.ServiceName)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdeleter grpc client: %v", err)
 	}
-	defer deleterClientCloser.Close()
-	if resp, err := deleterClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
-		logger.Error().Msgf("cannot ping mediaserverdeleter: %v", err)
-	} else {
-		if resp.GetStatus() != genericproto.ResultStatus_OK {
-			logger.Error().Msgf("cannot ping mediaserverdeleter: %v", resp.GetStatus())
-		} else {
-			logger.Info().Msgf("mediaserverdeleter ping response: %s", resp.GetMessage())
-		}
-	}
+	resolver.DoPing(dbClient, logger)
 
-	actionControllerClient, actionControllerClientCloser, err := mediaserverclient.NewActionClient(actionControllerAddr, clientCert)
+	actionControllerClient, err := resolver.NewClient[mediaserverproto.ActionClient](miniResolverClient, mediaserverproto.NewActionClient, mediaserverproto.Database_ServiceDesc.ServiceName)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserveractionController grpc client: %v", err)
 	}
-	defer actionControllerClientCloser.Close()
-	if resp, err := actionControllerClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
-		logger.Error().Msgf("cannot ping mediaserveractionController: %v", err)
-	} else {
-		if resp.GetStatus() != genericproto.ResultStatus_OK {
-			logger.Error().Msgf("cannot ping mediaserveractionController: %v", resp.GetStatus())
-		} else {
-			logger.Info().Msgf("mediaserveractionController ping response: %s", resp.GetMessage())
-		}
-	}
+	resolver.DoPing(dbClient, logger)
 
 	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, actionControllerClient, deleterClient, logger)
 	if err != nil {
