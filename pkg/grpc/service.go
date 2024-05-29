@@ -4,30 +4,32 @@ package grpc
 
 import (
 	"context"
+	"net/http"
+	"strings"
+
+	"emperror.dev/errors"
 	"github.com/je4/mediaserverapi/v2/pkg/grpcproto"
-	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
+	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net/http"
-	"strings"
 )
 
 type mediaserverAPI struct {
 	grpcproto.UnimplementedAPIServiceServer
 	logger   zLogger.ZLogger
-	dbClient mediaserverdbproto.DBControllerClient
+	dbClient mediaserverproto.DBControllerClient
 }
 
 func (api *mediaserverAPI) Ingest(ctx context.Context, item *grpcproto.IngestRequest) (*grpcproto.DefaultResponse, error) {
 
-	var parent *mediaserverdbproto.ItemIdentifier
+	var parent *mediaserverproto.ItemIdentifier
 	if item.Parent != nil && *item.Parent != "" {
 		parts := strings.SplitN(*item.Parent, "/", 2)
 		if len(parts) != 2 {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid parent %s", *item.Parent)
 		}
-		parent = &mediaserverdbproto.ItemIdentifier{
+		parent = &mediaserverproto.ItemIdentifier{
 			Collection: parts[0],
 			Signature:  parts[1],
 		}
@@ -35,7 +37,7 @@ func (api *mediaserverAPI) Ingest(ctx context.Context, item *grpcproto.IngestReq
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "cannot check parent %s: %v", item.Parent, err)
 		}
-		if resp.GetStatus().Enum() != mediaserverdbproto.ResultStatus_OK.Enum() {
+		if resp.GetStatus().Enum() != mediaserverproto.ResultStatus_OK.Enum() {
 			return nil, status.Errorf(codes.InvalidArgument, "parent %s does not exist", item.Parent)
 		}
 	}
@@ -43,8 +45,8 @@ func (api *mediaserverAPI) Ingest(ctx context.Context, item *grpcproto.IngestReq
 		return nil, status.Errorf(codes.InvalidArgument, "signature contains '/' character:  %s ", item.Signature)
 	}
 
-	result, err := api.dbClient.CreateItem(context.Background(), &mediaserverdbproto.NewItem{
-		Identifier: &mediaserverdbproto.ItemIdentifier{
+	result, err := api.dbClient.CreateItem(context.Background(), &mediaserverproto.NewItem{
+		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: item.GetCollection(),
 			Signature:  item.GetSignature(),
 		},
@@ -63,7 +65,7 @@ func (api *mediaserverAPI) Ingest(ctx context.Context, item *grpcproto.IngestReq
 		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("create item %s/%s: %v", collection, item.Signature, err))
 		return
 	}
-	if result.Status.String() != mediaserverdbproto.ResultStatus_OK.String() {
+	if result.Status.String() != mediaserverproto.ResultStatus_OK.String() {
 		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("cannot create item: %s/%s: %s", collection, item.Signature, result.Message))
 		return
 	}

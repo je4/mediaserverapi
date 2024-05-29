@@ -3,8 +3,14 @@ package rest
 import (
 	"context"
 	"crypto/tls"
-	"emperror.dev/errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+
+	"emperror.dev/errors"
 	"github.com/bluele/gcache"
 	"github.com/gin-gonic/gin"
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
@@ -18,11 +24,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
 )
 
 const BASEPATH = "/api/v1"
@@ -95,6 +96,9 @@ type controller struct {
 
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1 := ctrl.router.Group(BASEPATH)
+
+	v1.GET("/ping", ctrl.ping)
+
 	v1.Use(func(c *gin.Context) {
 		authHeader := c.Request.Header.Get("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -114,7 +118,7 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 
 		}
 	})
-	v1.GET("/ping", ctrl.ping)
+
 	v1.GET("/collection", ctrl.collections)
 	v1.GET("/collection/:collection", ctrl.collection)
 	v1.PUT("/collection/:collection", ctrl.createItem)
@@ -126,6 +130,7 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1.GET("/ingest", ctrl.getIngestItem)
 
 	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// ctrl.router.GET("/ping", ctrl.ping)
 	//ctrl.router.StaticFS("/swagger/", http.FS(swaggerFiles.FS))
 
 	ctrl.server = http.Server{
