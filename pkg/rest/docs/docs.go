@@ -24,6 +24,92 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/actions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "gets all active actions, which are provided by external action controllers. The actions are returned with their parameters. the global actions \"item\" and \"metadata\" are not listed",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mediaserver"
+                ],
+                "summary": "get actions with their parameters",
+                "operationId": "get-actions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/cache/{collection}/{signature}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "deletes all caches of item excluding \"item\" action",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mediaserver"
+                ],
+                "summary": "delete item caches metadata and media",
+                "operationId": "delete-item-caches-metadata-media",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "collection name",
+                        "name": "collection",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "signature",
+                        "name": "signature",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    }
+                }
+            }
+        },
         "/cache/{collection}/{signature}/{action}/{params}": {
             "get": {
                 "security": [
@@ -66,8 +152,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "params",
                         "name": "params",
-                        "in": "path",
-                        "required": true
+                        "in": "path"
                     }
                 ],
                 "responses": {
@@ -91,6 +176,71 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "deletes cache data and corresponding media objects",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mediaserver"
+                ],
+                "summary": "delete cache metadata and media",
+                "operationId": "delete-cache-metadata-media",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "collection name",
+                        "name": "collection",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "signature",
+                        "name": "signature",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "action",
+                        "name": "action",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "params",
+                        "name": "params",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/rest.HTTPResultMessage"
                         }

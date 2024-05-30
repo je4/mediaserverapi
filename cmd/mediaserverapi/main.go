@@ -125,7 +125,13 @@ func main() {
 	}
 	resolver.DoPing(actionControllerClient, logger)
 
-	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, actionControllerClient, deleterClient, logger)
+	actionDispatcherClient, err := resolver.NewClient[mediaserverproto.ActionDispatcherClient](miniResolverClient, mediaserverproto.NewActionDispatcherClient, mediaserverproto.ActionDispatcher_ServiceDesc.ServiceName)
+	if err != nil {
+		logger.Panic().Msgf("cannot create mediaserveractionDispatcher grpc client: %v", err)
+	}
+	resolver.DoPing(actionDispatcherClient, logger)
+
+	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, actionControllerClient, deleterClient, actionDispatcherClient, logger)
 	if err != nil {
 		logger.Fatal().Msgf("cannot create controller: %v", err)
 	}

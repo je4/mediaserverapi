@@ -43,11 +43,7 @@ const BASEPATH = "/api/v1"
 // @in header
 // @name Authorization
 
-func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string,
-	dbClient mediaserverproto.DatabaseClient,
-	actionControllerClient mediaserverproto.ActionClient,
-	deleterControllerClient mediaserverproto.DeleterClient,
-	logger zLogger.ZLogger) (*controller, error) {
+func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, dbClient mediaserverproto.DatabaseClient, actionControllerClient mediaserverproto.ActionClient, deleterControllerClient mediaserverproto.DeleterClient, actionDispatcherClient mediaserverproto.ActionDispatcherClient, logger zLogger.ZLogger) (*controller, error) {
 	u, err := url.Parse(extAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid external address '%s'", extAddr)
@@ -70,6 +66,7 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string,
 		dbClient:                dbClient,
 		actionControllerClient:  actionControllerClient,
 		deleterControllerClient: deleterControllerClient,
+		actionDispatcherClient:  actionDispatcherClient,
 		bearer:                  bearer,
 		actionParams:            map[string][]string{},
 	}
@@ -91,6 +88,7 @@ type controller struct {
 	deleterControllerClient mediaserverproto.DeleterClient
 	bearer                  string
 	actionParams            map[string][]string
+	actionDispatcherClient  mediaserverproto.ActionDispatcherClient
 }
 
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
@@ -122,10 +120,12 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1.PUT("/collection/:collection", ctrl.createItem)
 	v1.GET("/cache/:collection/:signature/:action", ctrl.getCache)
 	v1.GET("/cache/:collection/:signature/:action/*params", ctrl.getCache)
+	v1.DELETE("/cache/:collection/:signature", ctrl.deleteItemCaches)
 	v1.DELETE("/cache/:collection/:signature/:action", ctrl.deleteCache)
 	v1.DELETE("/cache/:collection/:signature/:action/*params", ctrl.deleteCache)
 	v1.GET("/storage/:storageid", ctrl.storage)
 	v1.GET("/ingest", ctrl.getIngestItem)
+	v1.GET("/actions", ctrl.getAllActions)
 
 	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	//ctrl.router.StaticFS("/swagger/", http.FS(swaggerFiles.FS))
@@ -541,7 +541,7 @@ func (ctrl *controller) getParams(mediaType string, action string) ([]string, er
 // @Param		 collection path string true "collection name"
 // @Param		 signature path string true "signature"
 // @Param		 action path string true "action"
-// @Param		 params path string true "params"
+// @Param		 params path string false "params"
 // @Success      200  {object}  any
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      401  {object}  HTTPResultMessage
@@ -576,12 +576,15 @@ func (ctrl *controller) getCache(c *gin.Context) {
 	}
 
 	ps := actionCache.ActionParams{}
-	aparams, err := ctrl.getParams(item.GetMetadata().GetType(), action)
-	if err != nil {
-		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get params for %s::%s", collection, action))
-		return
+	//if !slices.Contains([]string{"item"}, action) {
+	if action != "item" {
+		aparams, err := ctrl.getParams(item.GetMetadata().GetType(), action)
+		if err != nil {
+			NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get params for %s::%s", collection, action))
+			return
+		}
+		ps.SetString(params, aparams)
 	}
-	ps.SetString(params, aparams)
 
 	resp, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
 		Identifier: &mediaserverproto.ItemIdentifier{
@@ -592,12 +595,33 @@ func (ctrl *controller) getCache(c *gin.Context) {
 		Params: ps.String(),
 	})
 	if err != nil {
-		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot delete cache for %s/%s/%s/%s", collection, signature, action, params))
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "cache %s/%s/%s/%s not found", collection, signature, action, params))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get cache for %s/%s/%s/%s", collection, signature, action, params))
 		return
 	}
 	c.JSON(http.StatusOK, resp.GetMetadata())
 }
 
+// createItem godoc
+// @Summary      delete cache metadata and media
+// @ID			 delete-cache-metadata-media
+// @Description  deletes cache data and corresponding media objects
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Produce      json
+// @Param		 collection path string true "collection name"
+// @Param		 signature path string true "signature"
+// @Param		 action path string true "action"
+// @Param		 params path string false "params"
+// @Success      200  {object}  HTTPResultMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /cache/{collection}/{signature}/{action}/{params} [delete]
 func (ctrl *controller) deleteCache(c *gin.Context) {
 	collection := c.Param("collection")
 	if collection == "" {
@@ -625,6 +649,12 @@ func (ctrl *controller) deleteCache(c *gin.Context) {
 		Params: params,
 	})
 	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "cache %s/%s/%s/%s not found", collection, signature, action, params))
+				return
+			}
+		}
 		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot delete cache for %s/%s/%s/%s", collection, signature, action, params))
 		return
 	}
@@ -636,4 +666,75 @@ func (ctrl *controller) deleteCache(c *gin.Context) {
 		Code:    int(resp.GetStatus()),
 		Message: resp.Message,
 	})
+}
+
+// createItem godoc
+// @Summary      delete item caches metadata and media
+// @ID			 delete-item-caches-metadata-media
+// @Description  deletes all caches of item excluding "item" action
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Produce      json
+// @Param		 collection path string true "collection name"
+// @Param		 signature path string true "signature"
+// @Success      200  {object}  HTTPResultMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /cache/{collection}/{signature} [delete]
+func (ctrl *controller) deleteItemCaches(c *gin.Context) {
+	collection := c.Param("collection")
+	if collection == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
+		return
+	}
+	signature := c.Param("signature")
+	if signature == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
+		return
+	}
+	resp, err := ctrl.deleterControllerClient.DeleteItemCaches(context.Background(), &mediaserverproto.ItemIdentifier{
+		Collection: collection,
+		Signature:  signature,
+	})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "caches for %s/%s not found", collection, signature))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot delete caches for %s/%s", collection, signature))
+		return
+	}
+	if resp.Status.String() != genericproto.ResultStatus_OK.String() {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("cannot delete caches for %s/%s: %s", collection, signature, resp.Message))
+		return
+	}
+	c.JSON(http.StatusOK, HTTPResultMessage{
+		Code:    int(resp.GetStatus()),
+		Message: resp.Message,
+	})
+}
+
+// createItem godoc
+// @Summary      get actions with their parameters
+// @ID			 get-actions
+// @Description  gets all active actions, which are provided by external action controllers. The actions are returned with their parameters. the global actions "item" and "metadata" are not listed
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Produce      json
+// @Success      200  {object}  any
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /actions [get]
+func (ctrl *controller) getAllActions(c *gin.Context) {
+	resp, err := ctrl.actionDispatcherClient.GetActions(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get actions"))
+		return
+	}
+	actions := map[string][]string{}
+	for action, params := range resp.GetActions() {
+		actions[action] = params.GetValues()
+	}
+	c.JSON(http.StatusOK, actions)
 }

@@ -100,7 +100,107 @@ info:
   title: Mediaserver API
   version: "1.0"
 paths:
+  /actions:
+    get:
+      description: gets all active actions, which are provided by external action
+        controllers. The actions are returned with their parameters. the global actions
+        "item" and "metadata" are not listed
+      operationId: get-actions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      security:
+      - BearerAuth: []
+      summary: get actions with their parameters
+      tags:
+      - mediaserver
+  /cache/{collection}/{signature}:
+    delete:
+      description: deletes all caches of item excluding "item" action
+      operationId: delete-item-caches-metadata-media
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: signature
+        in: path
+        name: signature
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      security:
+      - BearerAuth: []
+      summary: delete item caches metadata and media
+      tags:
+      - mediaserver
   /cache/{collection}/{signature}/{action}/{params}:
+    delete:
+      description: deletes cache data and corresponding media objects
+      operationId: delete-cache-metadata-media
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: signature
+        in: path
+        name: signature
+        required: true
+        type: string
+      - description: action
+        in: path
+        name: action
+        required: true
+        type: string
+      - description: params
+        in: path
+        name: params
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      security:
+      - BearerAuth: []
+      summary: delete cache metadata and media
+      tags:
+      - mediaserver
     get:
       description: gets cache data
       operationId: get-collection-signature-action-params-cache
@@ -123,7 +223,6 @@ paths:
       - description: params
         in: path
         name: params
-        required: true
         type: string
       produces:
       - application/json
