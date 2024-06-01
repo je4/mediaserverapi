@@ -10,7 +10,7 @@ require (
 	github.com/bluele/gcache v0.0.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/je4/genericproto/v2 v2.0.3
-	github.com/je4/mediaserveraction/v2 v2.0.9
+	github.com/je4/mediaserveraction/v2 v2.0.10
 	github.com/je4/mediaserverproto/v2 v2.0.27
 	github.com/je4/miniresolver/v2 v2.0.13
 	github.com/je4/trustutil/v2 v2.0.15
