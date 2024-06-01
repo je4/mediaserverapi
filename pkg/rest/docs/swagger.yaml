@@ -324,9 +324,42 @@ paths:
       summary: gets collection data
       tags:
       - mediaserver
+  /ingest:
+    get:
+      description: gets next item for indexing
+      operationId: get-ingest-item
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HTTPIngestItemMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      security:
+      - BearerAuth: []
+      summary: next ingest item
+      tags:
+      - mediaserver
+  /item/{collection}:
     put:
       description: creates a new item for indexing
-      operationId: put-collection-item
+      operationId: put-item-collection
       parameters:
       - description: collection name
         in: path
@@ -367,27 +400,30 @@ paths:
       summary: creates new item
       tags:
       - mediaserver
-  /ingest:
-    get:
-      description: gets next item for indexing
-      operationId: get-ingest-item
+  /item/{collection}/{signature}:
+    delete:
+      description: deletes item including child items
+      operationId: delete-item-metadata-media
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: signature
+        in: path
+        name: signature
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/rest.HTTPIngestItemMessage'
+            $ref: '#/definitions/rest.HTTPResultMessage'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/rest.HTTPResultMessage'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/rest.HTTPResultMessage'
-        "404":
-          description: Not Found
           schema:
             $ref: '#/definitions/rest.HTTPResultMessage'
         "500":
@@ -396,7 +432,41 @@ paths:
             $ref: '#/definitions/rest.HTTPResultMessage'
       security:
       - BearerAuth: []
-      summary: next ingest item
+      summary: delete item metadata and media
+      tags:
+      - mediaserver
+    get:
+      description: get item metadata
+      operationId: get-item-metadata
+      parameters:
+      - description: collection name
+        in: path
+        name: collection
+        required: true
+        type: string
+      - description: signature
+        in: path
+        name: signature
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.HTTPResultMessage'
+      security:
+      - BearerAuth: []
+      summary: get item metadata
       tags:
       - mediaserver
   /ping:

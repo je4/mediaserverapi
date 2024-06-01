@@ -117,7 +117,9 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	})
 	v1.GET("/collection", ctrl.collections)
 	v1.GET("/collection/:collection", ctrl.collection)
-	v1.PUT("/collection/:collection", ctrl.createItem)
+	v1.PUT("/item/:collection", ctrl.createItem)
+	v1.GET("/item/:collection/:signature", ctrl.getItem)
+	v1.DELETE("/item/:collection/:signature", ctrl.deleteItem)
 	v1.GET("/cache/:collection/:signature/:action", ctrl.getCache)
 	v1.GET("/cache/:collection/:signature/:action/*params", ctrl.getCache)
 	v1.DELETE("/cache/:collection/:signature", ctrl.deleteItemCaches)
@@ -381,7 +383,7 @@ type CreateItemMessage struct {
 
 // createItem godoc
 // @Summary      creates new item
-// @ID			 put-collection-item
+// @ID			 put-item-collection
 // @Description  creates a new item for indexing
 // @Tags         mediaserver
 // @Security 	 BearerAuth
@@ -393,7 +395,7 @@ type CreateItemMessage struct {
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /collection/{collection} [put]
+// @Router       /item/{collection} [put]
 func (ctrl *controller) createItem(c *gin.Context) {
 	collection := c.Param("collection")
 	if collection == "" {
@@ -714,6 +716,95 @@ func (ctrl *controller) deleteItemCaches(c *gin.Context) {
 		Code:    int(resp.GetStatus()),
 		Message: resp.Message,
 	})
+}
+
+// createItem godoc
+// @Summary      delete item metadata and media
+// @ID			 delete-item-metadata-media
+// @Description  deletes item including child items
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Produce      json
+// @Param		 collection path string true "collection name"
+// @Param		 signature path string true "signature"
+// @Success      200  {object}  HTTPResultMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /item/{collection}/{signature} [delete]
+func (ctrl *controller) deleteItem(c *gin.Context) {
+	collection := c.Param("collection")
+	if collection == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
+		return
+	}
+	signature := c.Param("signature")
+	if signature == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
+		return
+	}
+	resp, err := ctrl.deleterControllerClient.DeleteItem(context.Background(), &mediaserverproto.ItemIdentifier{
+		Collection: collection,
+		Signature:  signature,
+	})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "caches for %s/%s not found", collection, signature))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot delete caches for %s/%s", collection, signature))
+		return
+	}
+	if resp.Status.String() != genericproto.ResultStatus_OK.String() {
+		NewResultMessage(c, http.StatusInternalServerError, errors.Errorf("cannot delete caches for %s/%s: %s", collection, signature, resp.Message))
+		return
+	}
+	c.JSON(http.StatusOK, HTTPResultMessage{
+		Code:    int(resp.GetStatus()),
+		Message: resp.Message,
+	})
+}
+
+// createItem godoc
+// @Summary      get item metadata
+// @ID			 get-item-metadata
+// @Description  get item metadata
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Produce      json
+// @Param		 collection path string true "collection name"
+// @Param		 signature path string true "signature"
+// @Success      200  {object}  HTTPResultMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /item/{collection}/{signature} [get]
+func (ctrl *controller) getItem(c *gin.Context) {
+	collection := c.Param("collection")
+	if collection == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
+		return
+	}
+	signature := c.Param("signature")
+	if signature == "" {
+		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
+		return
+	}
+	resp, err := ctrl.dbClient.GetItem(context.Background(), &mediaserverproto.ItemIdentifier{
+		Collection: collection,
+		Signature:  signature,
+	})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "item %s/%s not found", collection, signature))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get item %s/%s", collection, signature))
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // createItem godoc

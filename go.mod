@@ -10,10 +10,10 @@ require (
 	github.com/bluele/gcache v0.0.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/je4/genericproto/v2 v2.0.3
-	github.com/je4/mediaserveraction/v2 v2.0.6
+	github.com/je4/mediaserveraction/v2 v2.0.9
 	github.com/je4/mediaserverproto/v2 v2.0.27
-	github.com/je4/miniresolver/v2 v2.0.8
-	github.com/je4/trustutil/v2 v2.0.12
+	github.com/je4/miniresolver/v2 v2.0.13
+	github.com/je4/trustutil/v2 v2.0.15
 	github.com/je4/utils/v2 v2.0.38
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
@@ -61,7 +61,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20240529005216-23cca8864a10 // indirect
+	golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/tools v0.21.0 // indirect
