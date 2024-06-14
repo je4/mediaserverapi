@@ -9,7 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/je4/genericproto/v2 v2.0.3
 	github.com/je4/mediaserveraction/v2 v2.0.11
-	github.com/je4/mediaserverproto/v2 v2.0.28
+	github.com/je4/mediaserverproto/v2 v2.0.30
 	github.com/je4/miniresolver/v2 v2.0.13
 	github.com/je4/trustutil/v2 v2.0.18
 	github.com/je4/utils/v2 v2.0.38

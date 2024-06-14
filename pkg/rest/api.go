@@ -127,6 +127,7 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1.DELETE("/cache/:collection/:signature/:action/*params", ctrl.deleteCache)
 	v1.GET("/storage/:storageid", ctrl.storage)
 	v1.GET("/ingest", ctrl.getIngestItem)
+	v1.POST("/ingest/derivate", ctrl.getDerivateIngestItem)
 	v1.GET("/actions", ctrl.getAllActions)
 
 	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -513,6 +514,83 @@ func (ctrl *controller) getIngestItem(c *gin.Context) {
 		Collection: result.GetIdentifier().GetCollection(),
 		Signature:  result.GetIdentifier().GetSignature(),
 		Urn:        result.GetUrn(),
+	})
+}
+
+type GetDerivateIngestItemMessage struct {
+	Type     string   `json:"type" example:"video"`
+	Subtype  string   `json:"subtype" example:"mp4"`
+	Suffixes []string `json:"suffixes" example:"$$web"`
+}
+
+type HTTPDerivateIngestItemMessage struct {
+	Collection      string                          `json:"collection"`
+	Signature       string                          `json:"signature"`
+	CacheMetadata   *mediaserverproto.CacheMetadata `json:"cacheMetadata"`
+	MissingSuffixes []string                        `json:"missingSuffixes"`
+}
+
+// getIngestItem godoc
+// @Summary      next derivate ingest item
+// @ID			 get-derivate-ingest-item
+// @Description  gets next item for creating derivates
+// @Tags         mediaserver
+// @Security 	 BearerAuth
+// @Param		 type body GetDerivateIngestItemMessage true "data type and suffixes"
+// @Produce      json
+// @Success      200  {object}  HTTPIngestItemMessage
+// @Failure      400  {object}  HTTPResultMessage
+// @Failure      401  {object}  HTTPResultMessage
+// @Failure      404  {object}  HTTPResultMessage
+// @Failure      500  {object}  HTTPResultMessage
+// @Router       /ingest/derivate [post]
+func (ctrl *controller) getDerivateIngestItem(c *gin.Context) {
+	var itemType GetDerivateIngestItemMessage
+	if err := c.ShouldBindJSON(&itemType); err != nil {
+		NewResultMessage(c, http.StatusBadRequest, errors.Wrap(err, "cannot bind item type"))
+		return
+	}
+	itemResult, err := ctrl.dbClient.GetDerivateIngestItem(context.Background(), &mediaserverproto.DerivatIngestRequest{
+		Type:    itemType.Type,
+		Subtype: itemType.Subtype,
+		Suffix:  itemType.Suffixes,
+	})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "no derivate ingest item found"))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get derivate ingest item"))
+		return
+	}
+	collection := itemResult.GetItem().GetIdentifier().GetCollection()
+	signature := itemResult.GetItem().GetIdentifier().GetSignature()
+	cacheResult, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
+		Identifier: &mediaserverproto.ItemIdentifier{
+			Collection: collection,
+			Signature:  signature,
+		},
+		Action: "item",
+		Params: "",
+	})
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			if status.Code() == codes.NotFound {
+				NewResultMessage(c, http.StatusNotFound, errors.Wrapf(err, "cache %s/%s/%s/%s not found", collection, signature, "item", ""))
+				return
+			}
+		}
+		NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get cache for %s/%s/%s/%s", collection, signature, "item", ""))
+		return
+	}
+
+	c.JSON(http.StatusOK, HTTPDerivateIngestItemMessage{
+		Collection:      collection,
+		Signature:       signature,
+		CacheMetadata:   cacheResult.GetMetadata(),
+		MissingSuffixes: itemResult.GetMissing(),
 	})
 }
 

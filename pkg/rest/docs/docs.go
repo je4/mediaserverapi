@@ -416,6 +416,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/ingest/derivate": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "gets next item for creating derivates",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mediaserver"
+                ],
+                "summary": "next derivate ingest item",
+                "operationId": "get-derivate-ingest-item",
+                "parameters": [
+                    {
+                        "description": "data type and suffixes",
+                        "name": "type",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rest.GetDerivateIngestItemMessage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPIngestItemMessage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.HTTPResultMessage"
+                        }
+                    }
+                }
+            }
+        },
         "/item/{collection}": {
             "put": {
                 "security": [
@@ -708,6 +769,28 @@ const docTemplate = `{
                     "description": "Signature is a unique identifier for the item within its collection.",
                     "type": "string",
                     "example": "10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip_10_3931_e-rara-20425_export_mets.xml"
+                }
+            }
+        },
+        "rest.GetDerivateIngestItemMessage": {
+            "type": "object",
+            "properties": {
+                "subtype": {
+                    "type": "string",
+                    "example": "mp4"
+                },
+                "suffixes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "$$web"
+                    ]
+                },
+                "type": {
+                    "type": "string",
+                    "example": "video"
                 }
             }
         },
