@@ -3,28 +3,28 @@ package main
 import (
 	"emperror.dev/errors"
 	"github.com/BurntSushi/toml"
-	loaderConfig "github.com/je4/trustutil/v2/pkg/config"
+	"github.com/je4/certloader/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/config"
-	"github.com/je4/utils/v2/pkg/zLogger"
+	"github.com/je4/utils/v2/pkg/stashconfig"
 	"io/fs"
 	"os"
 )
 
 type MediaserverAPIConfig struct {
-	LocalAddr               string                  `toml:"localaddr"`
-	ExternalAddr            string                  `toml:"externaladdr"`
-	ClientDomain            string                  `toml:"clientdomain"`
-	Bearer                  string                  `toml:"bearer"`
-	ResolverAddr            string                  `toml:"resolveraddr"`
-	ResolverTimeout         config.Duration         `toml:"resolvertimeout"`
-	ResolverNotFoundTimeout config.Duration         `toml:"resolvernotfoundtimeout"`
-	RESTTLS                 loaderConfig.TLSConfig  `toml:"resttls"`
-	ServerTLS               *loaderConfig.TLSConfig `toml:"server"`
-	ClientTLS               *loaderConfig.TLSConfig `toml:"client"`
-	LogFile                 string                  `toml:"logfile"`
-	LogLevel                string                  `toml:"loglevel"`
-	GRPCClient              map[string]string       `toml:"grpcclient"`
-	Log                     zLogger.Config          `toml:"log"`
+	LocalAddr               string             `toml:"localaddr"`
+	ExternalAddr            string             `toml:"externaladdr"`
+	ClientDomain            string             `toml:"clientdomain"`
+	Bearer                  string             `toml:"bearer"`
+	ResolverAddr            string             `toml:"resolveraddr"`
+	ResolverTimeout         config.Duration    `toml:"resolvertimeout"`
+	ResolverNotFoundTimeout config.Duration    `toml:"resolvernotfoundtimeout"`
+	RESTTLS                 loader.Config      `toml:"resttls"`
+	ServerTLS               *loader.Config     `toml:"server"`
+	ClientTLS               *loader.Config     `toml:"client"`
+	LogFile                 string             `toml:"logfile"`
+	LogLevel                string             `toml:"loglevel"`
+	GRPCClient              map[string]string  `toml:"grpcclient"`
+	Log                     stashconfig.Config `toml:"log"`
 }
 
 func LoadMediaserverAPIConfig(fSys fs.FS, fp string, conf *MediaserverAPIConfig) error {

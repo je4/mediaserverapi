@@ -51,9 +51,9 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, d
 	subpath := "/" + strings.Trim(u.Path, "/")
 
 	// programmatically set swagger info
-	docs.SwaggerInfo.Host = strings.TrimRight(fmt.Sprintf("%s:%s", u.Hostname(), u.Port()), " :")
-	docs.SwaggerInfo.BasePath = "/" + strings.Trim(subpath+BASEPATH, "/")
-	docs.SwaggerInfo.Schemes = []string{"https"}
+	docs.SwaggerInfoMediaserverAPI.Host = strings.TrimRight(fmt.Sprintf("%s:%s", u.Hostname(), u.Port()), " :")
+	docs.SwaggerInfoMediaserverAPI.BasePath = "/" + strings.Trim(subpath+BASEPATH, "/")
+	docs.SwaggerInfoMediaserverAPI.Schemes = []string{"https"}
 
 	router := gin.Default()
 
@@ -130,7 +130,7 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1.POST("/ingest/derivate", ctrl.getDerivateIngestItem)
 	v1.GET("/actions", ctrl.getAllActions)
 
-	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.NewHandler(), ginSwagger.InstanceName("MediaserverAPI")))
 	//ctrl.router.StaticFS("/swagger/", http.FS(swaggerFiles.FS))
 
 	ctrl.server = http.Server{

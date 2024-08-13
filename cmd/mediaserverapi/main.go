@@ -4,12 +4,11 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"github.com/je4/certloader/v2/pkg/loader"
 	"github.com/je4/mediaserverapi/v2/config"
 	"github.com/je4/mediaserverapi/v2/pkg/rest"
 	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
 	"github.com/je4/miniresolver/v2/pkg/resolver"
-	loaderConfig "github.com/je4/trustutil/v2/pkg/config"
-	"github.com/je4/trustutil/v2/pkg/loader"
 	configutil "github.com/je4/utils/v2/pkg/config"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	ublogger "gitlab.switch.ch/ub-unibas/go-ublogger"
@@ -46,10 +45,10 @@ func main() {
 		LogLevel:                "DEBUG",
 		ResolverTimeout:         configutil.Duration(10 * time.Minute),
 		ResolverNotFoundTimeout: configutil.Duration(10 * time.Second),
-		ServerTLS: &loaderConfig.TLSConfig{
+		ServerTLS: &loader.Config{
 			Type: "DEV",
 		},
-		ClientTLS: &loaderConfig.TLSConfig{
+		ClientTLS: &loader.Config{
 			Type: "DEV",
 		},
 	}
