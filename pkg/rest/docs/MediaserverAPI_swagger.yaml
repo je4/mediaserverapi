@@ -115,12 +115,18 @@ info:
   title: Mediaserver API
   version: "1.0"
 paths:
-  /actions:
+  /{domain}/actions:
     get:
       description: gets all active actions, which are provided by external action
         controllers. The actions are returned with their parameters. the global actions
         "item" and "metadata" are not listed
       operationId: get-actions
+      parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -137,11 +143,16 @@ paths:
       summary: get actions with their parameters
       tags:
       - mediaserver
-  /cache/{collection}/{signature}:
+  /{domain}/cache/{collection}/{signature}:
     delete:
       description: deletes all caches of item excluding "item" action
       operationId: delete-item-caches-metadata-media
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -172,11 +183,16 @@ paths:
       summary: delete item caches metadata and media
       tags:
       - mediaserver
-  /cache/{collection}/{signature}/{action}/{params}:
+  /{domain}/cache/{collection}/{signature}/{action}/{params}:
     delete:
       description: deletes cache data and corresponding media objects
       operationId: delete-cache-metadata-media
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -220,6 +236,11 @@ paths:
       description: gets cache data
       operationId: get-collection-signature-action-params-cache
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -267,10 +288,16 @@ paths:
       summary: get cache metadata
       tags:
       - mediaserver
-  /collection:
+  /{domain}/collection:
     get:
       description: retrieves mediaserver collections
       operationId: get-collections
+      parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -301,11 +328,16 @@ paths:
       summary: gets collections data
       tags:
       - mediaserver
-  /collection/{collection}:
+  /{domain}/collection/{collection}:
     get:
       description: retrieves mediaserver collection information
       operationId: get-collection-by-name
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -339,10 +371,16 @@ paths:
       summary: gets collection data
       tags:
       - mediaserver
-  /ingest:
+  /{domain}/ingest:
     get:
       description: gets next item for indexing
       operationId: get-ingest-item
+      parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -371,11 +409,16 @@ paths:
       summary: next ingest item
       tags:
       - mediaserver
-  /ingest/derivate:
+  /{domain}/ingest/derivate:
     post:
       description: gets next item for creating derivates
       operationId: get-derivate-ingest-item
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: data type and suffixes
         in: body
         name: type
@@ -410,11 +453,16 @@ paths:
       summary: next derivate ingest item
       tags:
       - mediaserver
-  /item/{collection}:
+  /{domain}/item/{collection}:
     put:
       description: creates a new item for indexing
       operationId: put-item-collection
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -454,11 +502,16 @@ paths:
       summary: creates new item
       tags:
       - mediaserver
-  /item/{collection}/{signature}:
+  /{domain}/item/{collection}/{signature}:
     delete:
       description: deletes item including child items
       operationId: delete-item-metadata-media
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -493,6 +546,11 @@ paths:
       description: get item metadata
       operationId: get-item-metadata
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: collection name
         in: path
         name: collection
@@ -523,10 +581,16 @@ paths:
       summary: get item metadata
       tags:
       - mediaserver
-  /ping:
+  /{domain}/ping:
     get:
       description: for testing if server is running
       operationId: get-ping
+      parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       produces:
       - text/plain
       responses:
@@ -537,11 +601,16 @@ paths:
       summary: does pong
       tags:
       - mediaserver
-  /storage/{storageid}:
+  /{domain}/storage/{storageid}:
     get:
       description: retrieves mediaserver storage information
       operationId: get-storage-by-id
       parameters:
+      - description: Domain
+        in: path
+        name: domain
+        required: true
+        type: string
       - description: storage id
         in: path
         name: storageid

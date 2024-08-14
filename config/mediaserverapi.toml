@@ -1,5 +1,5 @@
 localaddr = ":8765"
-clientdomain = "ubmedia"
+clientdomains = ["ubmedia"]
 bearer = "grmbl"
 resolveraddr = "[::1]:7777"
 resolvertimeout = "10m"

@@ -43,7 +43,15 @@ const BASEPATH = "/api/v1"
 // @in header
 // @name Authorization
 
-func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, dbClient mediaserverproto.DatabaseClient, actionControllerClient mediaserverproto.ActionClient, deleterControllerClient mediaserverproto.DeleterClient, actionDispatcherClient mediaserverproto.ActionDispatcherClient, logger zLogger.ZLogger) (*controller, error) {
+func NewController(addr, extAddr string,
+	tlsConfig *tls.Config,
+	bearer string,
+	dbClients map[string]mediaserverproto.DatabaseClient,
+	actionControllerClients map[string]mediaserverproto.ActionClient,
+	deleterControllerClients map[string]mediaserverproto.DeleterClient,
+	actionDispatcherClients map[string]mediaserverproto.ActionDispatcherClient,
+	logger zLogger.ZLogger,
+) (*controller, error) {
 	u, err := url.Parse(extAddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid external address '%s'", extAddr)
@@ -58,17 +66,17 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, d
 	router := gin.Default()
 
 	c := &controller{
-		addr:                    addr,
-		router:                  router,
-		subpath:                 subpath,
-		cache:                   gcache.New(100).LRU().Build(),
-		logger:                  logger,
-		dbClient:                dbClient,
-		actionControllerClient:  actionControllerClient,
-		deleterControllerClient: deleterControllerClient,
-		actionDispatcherClient:  actionDispatcherClient,
-		bearer:                  bearer,
-		actionParams:            map[string][]string{},
+		addr:                     addr,
+		router:                   router,
+		subpath:                  subpath,
+		cache:                    gcache.New(100).LRU().Build(),
+		logger:                   logger,
+		dbClients:                dbClients,
+		actionControllerClients:  actionControllerClients,
+		deleterControllerClients: deleterControllerClients,
+		actionDispatcherClients:  actionDispatcherClients,
+		bearer:                   bearer,
+		actionParams:             map[string][]string{},
 	}
 	if err := c.Init(tlsConfig); err != nil {
 		return nil, errors.Wrap(err, "cannot initialize rest controller")
@@ -77,24 +85,24 @@ func NewController(addr, extAddr string, tlsConfig *tls.Config, bearer string, d
 }
 
 type controller struct {
-	server                  http.Server
-	router                  *gin.Engine
-	addr                    string
-	subpath                 string
-	cache                   gcache.Cache
-	logger                  zLogger.ZLogger
-	dbClient                mediaserverproto.DatabaseClient
-	actionControllerClient  mediaserverproto.ActionClient
-	deleterControllerClient mediaserverproto.DeleterClient
-	bearer                  string
-	actionParams            map[string][]string
-	actionDispatcherClient  mediaserverproto.ActionDispatcherClient
+	server                   http.Server
+	router                   *gin.Engine
+	addr                     string
+	subpath                  string
+	cache                    gcache.Cache
+	logger                   zLogger.ZLogger
+	dbClients                map[string]mediaserverproto.DatabaseClient
+	actionControllerClients  map[string]mediaserverproto.ActionClient
+	deleterControllerClients map[string]mediaserverproto.DeleterClient
+	actionDispatcherClients  map[string]mediaserverproto.ActionDispatcherClient
+	bearer                   string
+	actionParams             map[string][]string
 }
 
 func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 	v1 := ctrl.router.Group(BASEPATH)
 
-	v1.GET("/ping", ctrl.ping)
+	v1.GET("/:domain/ping", ctrl.ping)
 
 	v1.Use(func(c *gin.Context) {
 		authHeader := c.Request.Header.Get("Authorization")
@@ -115,20 +123,20 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 
 		}
 	})
-	v1.GET("/collection", ctrl.collections)
-	v1.GET("/collection/:collection", ctrl.collection)
-	v1.PUT("/item/:collection", ctrl.createItem)
-	v1.GET("/item/:collection/:signature", ctrl.getItem)
-	v1.DELETE("/item/:collection/:signature", ctrl.deleteItem)
-	v1.GET("/cache/:collection/:signature/:action", ctrl.getCache)
-	v1.GET("/cache/:collection/:signature/:action/*params", ctrl.getCache)
-	v1.DELETE("/cache/:collection/:signature", ctrl.deleteItemCaches)
-	v1.DELETE("/cache/:collection/:signature/:action", ctrl.deleteCache)
-	v1.DELETE("/cache/:collection/:signature/:action/*params", ctrl.deleteCache)
-	v1.GET("/storage/:storageid", ctrl.storage)
-	v1.GET("/ingest", ctrl.getIngestItem)
-	v1.POST("/ingest/derivate", ctrl.getDerivateIngestItem)
-	v1.GET("/actions", ctrl.getAllActions)
+	v1.GET("/:domain/collection", ctrl.collections)
+	v1.GET("/:domain/collection/:collection", ctrl.collection)
+	v1.PUT("/:domain/item/:collection", ctrl.createItem)
+	v1.GET("/:domain/item/:collection/:signature", ctrl.getItem)
+	v1.DELETE("/:domain/item/:collection/:signature", ctrl.deleteItem)
+	v1.GET("/:domain/cache/:collection/:signature/:action", ctrl.getCache)
+	v1.GET("/:domain/cache/:collection/:signature/:action/*params", ctrl.getCache)
+	v1.DELETE("/:domain/cache/:collection/:signature", ctrl.deleteItemCaches)
+	v1.DELETE("/:domain/cache/:collection/:signature/:action", ctrl.deleteCache)
+	v1.DELETE("/:domain/cache/:collection/:signature/:action/*params", ctrl.deleteCache)
+	v1.GET("/:domain/storage/:storageid", ctrl.storage)
+	v1.GET("/:domain/ingest", ctrl.getIngestItem)
+	v1.POST("/:domain/ingest/derivate", ctrl.getDerivateIngestItem)
+	v1.GET("/:domain/actions", ctrl.getAllActions)
 
 	ctrl.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.NewHandler(), ginSwagger.InstanceName("MediaserverAPI")))
 	//ctrl.router.StaticFS("/swagger/", http.FS(swaggerFiles.FS))
@@ -181,11 +189,13 @@ func (ctrl *controller) GracefulStop() {
 // @ID			 get-ping
 // @Description  for testing if server is running
 // @Tags         mediaserver
+// @Param 		 domain path string true "Domain"
 // @Produce      plain
 // @Success      200  {string}  string
-// @Router       /ping [get]
+// @Router       /{domain}/ping [get]
 func (ctrl *controller) ping(c *gin.Context) {
-	c.String(http.StatusOK, "pong")
+	domain := c.Param("domain")
+	c.String(http.StatusOK, "%s::pong", domain)
 }
 
 type HTTPCollectionResultMessage struct {
@@ -205,20 +215,27 @@ type HTTPCollectionResultMessage struct {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Success      200  {string}  HTTPCollectionResultMessage
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /collection/{collection} [get]
+// @Router       /{domain}/collection/{collection} [get]
 func (ctrl *controller) collection(c *gin.Context) {
+	domain := c.Param("domain")
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection specified"))
 		return
 	}
-	coll, err := ctrl.dbClient.GetCollection(context.Background(), &mediaserverproto.CollectionIdentifier{Collection: collection})
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
+	coll, err := dbClient.GetCollection(context.Background(), &mediaserverproto.CollectionIdentifier{Collection: collection})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
 			if status.Code() == codes.NotFound {
@@ -256,6 +273,7 @@ func (ctrl *controller) collection(c *gin.Context) {
 // @ID			 get-collections
 // @Description  retrieves mediaserver collections
 // @Tags         mediaserver
+// @Param 		 domain path string true "Domain"
 // @Security 	 BearerAuth
 // @Produce      json
 // @Success      200  {array}   HTTPCollectionResultMessage
@@ -263,10 +281,16 @@ func (ctrl *controller) collection(c *gin.Context) {
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /collection [get]
+// @Router       /{domain}/collection [get]
 func (ctrl *controller) collections(c *gin.Context) {
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 
-	colls, err := ctrl.dbClient.GetCollections(context.Background(), nil)
+	colls, err := dbClient.GetCollections(context.Background(), nil)
 	if err != nil {
 		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get collection"))
 		return
@@ -319,20 +343,27 @@ type HTTPStorageResultMessage struct {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 storageid path string true "storage id"
 // @Success      200  {string}  HTTPStorageResultMessage
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /storage/{storageid} [get]
+// @Router       /{domain}/storage/{storageid} [get]
 func (ctrl *controller) storage(c *gin.Context) {
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	storageid := c.Param("storageid")
 	if storageid == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no storage id specified"))
 		return
 	}
-	storage, err := ctrl.dbClient.GetStorage(context.Background(), &mediaserverproto.StorageIdentifier{Name: storageid})
+	storage, err := dbClient.GetStorage(context.Background(), &mediaserverproto.StorageIdentifier{Name: storageid})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
 			if status.Code() == codes.NotFound {
@@ -389,6 +420,7 @@ type CreateItemMessage struct {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Param 		 item       body CreateItemMessage true "new item to create"
 // @Success      200  {object}  HTTPResultMessage
@@ -396,8 +428,14 @@ type CreateItemMessage struct {
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /item/{collection} [put]
+// @Router       /{domain}/item/{collection} [put]
 func (ctrl *controller) createItem(c *gin.Context) {
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
@@ -419,7 +457,7 @@ func (ctrl *controller) createItem(c *gin.Context) {
 			Collection: parts[0],
 			Signature:  parts[1],
 		}
-		resp, err := ctrl.dbClient.ExistsItem(context.Background(), parent)
+		resp, err := dbClient.ExistsItem(context.Background(), parent)
 		if err != nil {
 			NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot check parent %s", item.Parent))
 			return
@@ -448,7 +486,7 @@ func (ctrl *controller) createItem(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("invalid ingest type %s", item.IngestType))
 		return
 	}
-	result, err := ctrl.dbClient.CreateItem(context.Background(), &mediaserverproto.NewItem{
+	result, err := dbClient.CreateItem(context.Background(), &mediaserverproto.NewItem{
 		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  item.Signature,
@@ -490,6 +528,7 @@ type HTTPIngestItemMessage struct {
 // @ID			 get-ingest-item
 // @Description  gets next item for indexing
 // @Tags         mediaserver
+// @Param 		 domain path string true "Domain"
 // @Security 	 BearerAuth
 // @Produce      json
 // @Success      200  {object}  HTTPIngestItemMessage
@@ -497,9 +536,15 @@ type HTTPIngestItemMessage struct {
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /ingest [get]
+// @Router       /{domain}/ingest [get]
 func (ctrl *controller) getIngestItem(c *gin.Context) {
-	result, err := ctrl.dbClient.GetIngestItem(context.Background(), &emptypb.Empty{})
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
+	result, err := dbClient.GetIngestItem(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
 			if status.Code() == codes.NotFound {
@@ -536,6 +581,7 @@ type HTTPDerivateIngestItemMessage struct {
 // @Description  gets next item for creating derivates
 // @Tags         mediaserver
 // @Security 	 BearerAuth
+// @Param 		 domain path string true "Domain"
 // @Param		 type body GetDerivateIngestItemMessage true "data type and suffixes"
 // @Produce      json
 // @Success      200  {object}  HTTPIngestItemMessage
@@ -543,14 +589,20 @@ type HTTPDerivateIngestItemMessage struct {
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /ingest/derivate [post]
+// @Router       /{domain}/ingest/derivate [post]
 func (ctrl *controller) getDerivateIngestItem(c *gin.Context) {
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	var itemType GetDerivateIngestItemMessage
 	if err := c.ShouldBindJSON(&itemType); err != nil {
 		NewResultMessage(c, http.StatusBadRequest, errors.Wrap(err, "cannot bind item type"))
 		return
 	}
-	itemResult, err := ctrl.dbClient.GetDerivateIngestItem(context.Background(), &mediaserverproto.DerivatIngestRequest{
+	itemResult, err := dbClient.GetDerivateIngestItem(context.Background(), &mediaserverproto.DerivatIngestRequest{
 		Type:    itemType.Type,
 		Subtype: itemType.Subtype,
 		Suffix:  itemType.Suffixes,
@@ -567,7 +619,7 @@ func (ctrl *controller) getDerivateIngestItem(c *gin.Context) {
 	}
 	collection := itemResult.GetItem().GetIdentifier().GetCollection()
 	signature := itemResult.GetItem().GetIdentifier().GetSignature()
-	cacheResult, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
+	cacheResult, err := dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
 		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  signature,
@@ -594,12 +646,16 @@ func (ctrl *controller) getDerivateIngestItem(c *gin.Context) {
 	})
 }
 
-func (ctrl *controller) getParams(mediaType string, action string) ([]string, error) {
+func (ctrl *controller) getParams(mediaType string, action, domain string) ([]string, error) {
+	actionControllerClient, ok := ctrl.actionControllerClients[domain]
+	if !ok {
+		return nil, errors.Errorf("no action controller client for domain %s", domain)
+	}
 	sig := fmt.Sprintf("%s::%s", mediaType, action)
 	if params, ok := ctrl.actionParams[sig]; ok {
 		return params, nil
 	}
-	resp, err := ctrl.actionControllerClient.GetParams(context.Background(), &mediaserverproto.ParamsParam{
+	resp, err := actionControllerClient.GetParams(context.Background(), &mediaserverproto.ParamsParam{
 		Type:   mediaType,
 		Action: action,
 	})
@@ -618,6 +674,7 @@ func (ctrl *controller) getParams(mediaType string, action string) ([]string, er
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Param		 signature path string true "signature"
 // @Param		 action path string true "action"
@@ -627,8 +684,14 @@ func (ctrl *controller) getParams(mediaType string, action string) ([]string, er
 // @Failure      401  {object}  HTTPResultMessage
 // @Failure      404  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /cache/{collection}/{signature}/{action}/{params} [get]
+// @Router       /{domain}/cache/{collection}/{signature}/{action}/{params} [get]
 func (ctrl *controller) getCache(c *gin.Context) {
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
@@ -646,7 +709,7 @@ func (ctrl *controller) getCache(c *gin.Context) {
 	}
 	params := c.Param("params")
 
-	item, err := ctrl.dbClient.GetItem(context.Background(), &mediaserverproto.ItemIdentifier{
+	item, err := dbClient.GetItem(context.Background(), &mediaserverproto.ItemIdentifier{
 		Collection: collection,
 		Signature:  signature,
 	})
@@ -658,7 +721,7 @@ func (ctrl *controller) getCache(c *gin.Context) {
 	ps := actionCache.ActionParams{}
 	//if !slices.Contains([]string{"item"}, action) {
 	if action != "item" {
-		aparams, err := ctrl.getParams(item.GetMetadata().GetType(), action)
+		aparams, err := ctrl.getParams(item.GetMetadata().GetType(), action, domain)
 		if err != nil {
 			NewResultMessage(c, http.StatusInternalServerError, errors.Wrapf(err, "cannot get params for %s::%s", collection, action))
 			return
@@ -666,7 +729,7 @@ func (ctrl *controller) getCache(c *gin.Context) {
 		ps.SetString(params, aparams)
 	}
 
-	resp, err := ctrl.dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
+	resp, err := dbClient.GetCache(context.Background(), &mediaserverproto.CacheRequest{
 		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  signature,
@@ -694,6 +757,7 @@ func (ctrl *controller) getCache(c *gin.Context) {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Param		 signature path string true "signature"
 // @Param		 action path string true "action"
@@ -701,8 +765,14 @@ func (ctrl *controller) getCache(c *gin.Context) {
 // @Success      200  {object}  HTTPResultMessage
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /cache/{collection}/{signature}/{action}/{params} [delete]
+// @Router       /{domain}/cache/{collection}/{signature}/{action}/{params} [delete]
 func (ctrl *controller) deleteCache(c *gin.Context) {
+	domain := c.Param("domain")
+	deleterControllerClient, ok := ctrl.deleterControllerClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
@@ -720,7 +790,7 @@ func (ctrl *controller) deleteCache(c *gin.Context) {
 	}
 	params := c.Param("params")
 
-	resp, err := ctrl.deleterControllerClient.DeleteCache(context.Background(), &mediaserverproto.CacheRequest{
+	resp, err := deleterControllerClient.DeleteCache(context.Background(), &mediaserverproto.CacheRequest{
 		Identifier: &mediaserverproto.ItemIdentifier{
 			Collection: collection,
 			Signature:  signature,
@@ -755,13 +825,20 @@ func (ctrl *controller) deleteCache(c *gin.Context) {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Param		 signature path string true "signature"
 // @Success      200  {object}  HTTPResultMessage
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /cache/{collection}/{signature} [delete]
+// @Router       /{domain}/cache/{collection}/{signature} [delete]
 func (ctrl *controller) deleteItemCaches(c *gin.Context) {
+	domain := c.Param("domain")
+	deleterControllerClient, ok := ctrl.deleterControllerClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
@@ -772,7 +849,7 @@ func (ctrl *controller) deleteItemCaches(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
 		return
 	}
-	resp, err := ctrl.deleterControllerClient.DeleteItemCaches(context.Background(), &mediaserverproto.ItemIdentifier{
+	resp, err := deleterControllerClient.DeleteItemCaches(context.Background(), &mediaserverproto.ItemIdentifier{
 		Collection: collection,
 		Signature:  signature,
 	})
@@ -803,13 +880,20 @@ func (ctrl *controller) deleteItemCaches(c *gin.Context) {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Param		 signature path string true "signature"
 // @Success      200  {object}  HTTPResultMessage
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /item/{collection}/{signature} [delete]
+// @Router       /{domain}/item/{collection}/{signature} [delete]
 func (ctrl *controller) deleteItem(c *gin.Context) {
+	domain := c.Param("domain")
+	deleterControllerClient, ok := ctrl.deleterControllerClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
@@ -820,7 +904,7 @@ func (ctrl *controller) deleteItem(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
 		return
 	}
-	resp, err := ctrl.deleterControllerClient.DeleteItem(context.Background(), &mediaserverproto.ItemIdentifier{
+	resp, err := deleterControllerClient.DeleteItem(context.Background(), &mediaserverproto.ItemIdentifier{
 		Collection: collection,
 		Signature:  signature,
 	})
@@ -851,13 +935,20 @@ func (ctrl *controller) deleteItem(c *gin.Context) {
 // @Tags         mediaserver
 // @Security 	 BearerAuth
 // @Produce      json
+// @Param 		 domain path string true "Domain"
 // @Param		 collection path string true "collection name"
 // @Param		 signature path string true "signature"
 // @Success      200  {object}  HTTPResultMessage
 // @Failure      400  {object}  HTTPResultMessage
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /item/{collection}/{signature} [get]
+// @Router       /{domain}/item/{collection}/{signature} [get]
 func (ctrl *controller) getItem(c *gin.Context) {
+	domain := c.Param("domain")
+	dbClient, ok := ctrl.dbClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
 	collection := c.Param("collection")
 	if collection == "" {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no collection name specified"))
@@ -868,7 +959,7 @@ func (ctrl *controller) getItem(c *gin.Context) {
 		NewResultMessage(c, http.StatusBadRequest, errors.New("no signature specified"))
 		return
 	}
-	resp, err := ctrl.dbClient.GetItem(context.Background(), &mediaserverproto.ItemIdentifier{
+	resp, err := dbClient.GetItem(context.Background(), &mediaserverproto.ItemIdentifier{
 		Collection: collection,
 		Signature:  signature,
 	})
@@ -890,13 +981,20 @@ func (ctrl *controller) getItem(c *gin.Context) {
 // @ID			 get-actions
 // @Description  gets all active actions, which are provided by external action controllers. The actions are returned with their parameters. the global actions "item" and "metadata" are not listed
 // @Tags         mediaserver
+// @Param 		 domain path string true "Domain"
 // @Security 	 BearerAuth
 // @Produce      json
 // @Success      200  {object}  any
 // @Failure      500  {object}  HTTPResultMessage
-// @Router       /actions [get]
+// @Router       /{domain}/actions [get]
 func (ctrl *controller) getAllActions(c *gin.Context) {
-	resp, err := ctrl.actionDispatcherClient.GetActions(context.Background(), &emptypb.Empty{})
+	domain := c.Param("domain")
+	actionDispatcherClient, ok := ctrl.actionDispatcherClients[domain]
+	if !ok {
+		NewResultMessage(c, http.StatusBadRequest, errors.Errorf("no db client for domain %s", domain))
+		return
+	}
+	resp, err := actionDispatcherClient.GetActions(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		NewResultMessage(c, http.StatusInternalServerError, errors.Wrap(err, "cannot get actions"))
 		return

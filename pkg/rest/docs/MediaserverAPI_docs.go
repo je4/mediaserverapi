@@ -24,7 +24,7 @@ const docTemplateMediaserverAPI = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/actions": {
+        "/{domain}/actions": {
             "get": {
                 "security": [
                     {
@@ -40,6 +40,15 @@ const docTemplateMediaserverAPI = `{
                 ],
                 "summary": "get actions with their parameters",
                 "operationId": "get-actions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -56,7 +65,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/cache/{collection}/{signature}": {
+        "/{domain}/cache/{collection}/{signature}": {
             "delete": {
                 "security": [
                     {
@@ -73,6 +82,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "delete item caches metadata and media",
                 "operationId": "delete-item-caches-metadata-media",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "collection name",
@@ -110,7 +126,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/cache/{collection}/{signature}/{action}/{params}": {
+        "/{domain}/cache/{collection}/{signature}/{action}/{params}": {
             "get": {
                 "security": [
                     {
@@ -127,6 +143,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "get cache metadata",
                 "operationId": "get-collection-signature-action-params-cache",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "collection name",
@@ -206,6 +229,13 @@ const docTemplateMediaserverAPI = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "collection name",
                         "name": "collection",
                         "in": "path",
@@ -254,7 +284,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/collection": {
+        "/{domain}/collection": {
             "get": {
                 "security": [
                     {
@@ -270,6 +300,15 @@ const docTemplateMediaserverAPI = `{
                 ],
                 "summary": "gets collections data",
                 "operationId": "get-collections",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -307,7 +346,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/collection/{collection}": {
+        "/{domain}/collection/{collection}": {
             "get": {
                 "security": [
                     {
@@ -324,6 +363,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "gets collection data",
                 "operationId": "get-collection-by-name",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "collection name",
@@ -366,7 +412,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/ingest": {
+        "/{domain}/ingest": {
             "get": {
                 "security": [
                     {
@@ -382,6 +428,15 @@ const docTemplateMediaserverAPI = `{
                 ],
                 "summary": "next ingest item",
                 "operationId": "get-ingest-item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -416,7 +471,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/ingest/derivate": {
+        "/{domain}/ingest/derivate": {
             "post": {
                 "security": [
                     {
@@ -433,6 +488,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "next derivate ingest item",
                 "operationId": "get-derivate-ingest-item",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "description": "data type and suffixes",
                         "name": "type",
@@ -477,7 +539,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/item/{collection}": {
+        "/{domain}/item/{collection}": {
             "put": {
                 "security": [
                     {
@@ -494,6 +556,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "creates new item",
                 "operationId": "put-item-collection",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "collection name",
@@ -545,7 +614,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/item/{collection}/{signature}": {
+        "/{domain}/item/{collection}/{signature}": {
             "get": {
                 "security": [
                     {
@@ -562,6 +631,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "get item metadata",
                 "operationId": "get-item-metadata",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "collection name",
@@ -616,6 +692,13 @@ const docTemplateMediaserverAPI = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "collection name",
                         "name": "collection",
                         "in": "path",
@@ -651,7 +734,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/ping": {
+        "/{domain}/ping": {
             "get": {
                 "description": "for testing if server is running",
                 "produces": [
@@ -662,6 +745,15 @@ const docTemplateMediaserverAPI = `{
                 ],
                 "summary": "does pong",
                 "operationId": "get-ping",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -672,7 +764,7 @@ const docTemplateMediaserverAPI = `{
                 }
             }
         },
-        "/storage/{storageid}": {
+        "/{domain}/storage/{storageid}": {
             "get": {
                 "security": [
                     {
@@ -689,6 +781,13 @@ const docTemplateMediaserverAPI = `{
                 "summary": "gets storage data",
                 "operationId": "get-storage-by-id",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Domain",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "storage id",

@@ -106,36 +106,39 @@ func main() {
 	}
 	defer miniResolverClient.Close()
 
-	var domainPrefix string
-	if conf.ClientDomain != "" {
-		domainPrefix = conf.ClientDomain + "."
-	}
-
-	dbClient, err := resolver.NewClient[mediaserverproto.DatabaseClient](miniResolverClient, mediaserverproto.NewDatabaseClient, domainPrefix+mediaserverproto.Database_ServiceDesc.ServiceName)
+	dbClients, err := resolver.NewClients[mediaserverproto.DatabaseClient](miniResolverClient, mediaserverproto.NewDatabaseClient, mediaserverproto.Database_ServiceDesc.ServiceName, conf.ClientDomains)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdatabase grpc client: %v", err)
 	}
-	resolver.DoPing(dbClient, logger)
+	for _, dbClient := range dbClients {
+		resolver.DoPing(dbClient, logger)
+	}
 
-	deleterClient, err := resolver.NewClient[mediaserverproto.DeleterClient](miniResolverClient, mediaserverproto.NewDeleterClient, domainPrefix+mediaserverproto.Deleter_ServiceDesc.ServiceName)
+	deleterClients, err := resolver.NewClients[mediaserverproto.DeleterClient](miniResolverClient, mediaserverproto.NewDeleterClient, mediaserverproto.Deleter_ServiceDesc.ServiceName, conf.ClientDomains)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdeleter grpc client: %v", err)
 	}
-	resolver.DoPing(deleterClient, logger)
+	for _, deleterClient := range deleterClients {
+		resolver.DoPing(deleterClient, logger)
+	}
 
-	actionControllerClient, err := resolver.NewClient[mediaserverproto.ActionClient](miniResolverClient, mediaserverproto.NewActionClient, domainPrefix+mediaserverproto.Action_ServiceDesc.ServiceName)
+	actionControllerClients, err := resolver.NewClients[mediaserverproto.ActionClient](miniResolverClient, mediaserverproto.NewActionClient, mediaserverproto.Action_ServiceDesc.ServiceName, conf.ClientDomains)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserveractionController grpc client: %v", err)
 	}
-	resolver.DoPing(actionControllerClient, logger)
+	for _, actionControllerClient := range actionControllerClients {
+		resolver.DoPing(actionControllerClient, logger)
+	}
 
-	actionDispatcherClient, err := resolver.NewClient[mediaserverproto.ActionDispatcherClient](miniResolverClient, mediaserverproto.NewActionDispatcherClient, domainPrefix+mediaserverproto.ActionDispatcher_ServiceDesc.ServiceName)
+	actionDispatcherClients, err := resolver.NewClients[mediaserverproto.ActionDispatcherClient](miniResolverClient, mediaserverproto.NewActionDispatcherClient, mediaserverproto.ActionDispatcher_ServiceDesc.ServiceName, conf.ClientDomains)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserveractionDispatcher grpc client: %v", err)
 	}
-	resolver.DoPing(actionDispatcherClient, logger)
+	for _, actionDispatcherClient := range actionDispatcherClients {
+		resolver.DoPing(actionDispatcherClient, logger)
+	}
 
-	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClient, actionControllerClient, deleterClient, actionDispatcherClient, logger)
+	ctrl, err := rest.NewController(conf.LocalAddr, conf.ExternalAddr, restTLSConfig, conf.Bearer, dbClients, actionControllerClients, deleterClients, actionDispatcherClients, logger)
 	if err != nil {
 		logger.Fatal().Msgf("cannot create controller: %v", err)
 	}
