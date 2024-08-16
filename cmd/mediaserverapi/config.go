@@ -13,8 +13,8 @@ import (
 type MediaserverAPIConfig struct {
 	LocalAddr               string             `toml:"localaddr"`
 	ExternalAddr            string             `toml:"externaladdr"`
-	ClientDomains           []string           `toml:"clientdomains"`
-	Bearer                  string             `toml:"bearer"`
+	Domains                 []string           `toml:"domains"`
+	Bearer                  map[string]string  `toml:"bearer"`
 	ResolverAddr            string             `toml:"resolveraddr"`
 	ResolverTimeout         config.Duration    `toml:"resolvertimeout"`
 	ResolverNotFoundTimeout config.Duration    `toml:"resolvernotfoundtimeout"`

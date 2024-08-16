@@ -45,7 +45,7 @@ const BASEPATH = "/api/v1"
 
 func NewController(addr, extAddr string,
 	tlsConfig *tls.Config,
-	bearer string,
+	bearer map[string]string,
 	dbClients map[string]mediaserverproto.DatabaseClient,
 	actionControllerClients map[string]mediaserverproto.ActionClient,
 	deleterControllerClients map[string]mediaserverproto.DeleterClient,
@@ -95,7 +95,7 @@ type controller struct {
 	actionControllerClients  map[string]mediaserverproto.ActionClient
 	deleterControllerClients map[string]mediaserverproto.DeleterClient
 	actionDispatcherClients  map[string]mediaserverproto.ActionDispatcherClient
-	bearer                   string
+	bearer                   map[string]string
 	actionParams             map[string][]string
 }
 
@@ -114,7 +114,16 @@ func (ctrl *controller) Init(tlsConfig *tls.Config) error {
 			return
 		}
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token != ctrl.bearer {
+		domain := c.Param("domain")
+		bearer, ok := ctrl.bearer[domain]
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, HTTPResultMessage{
+				Code:    http.StatusUnauthorized,
+				Message: fmt.Sprintf("bearer for domain '%s' not configured", domain),
+			})
+			return
+		}
+		if token != bearer {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, HTTPResultMessage{
 				Code:    http.StatusUnauthorized,
 				Message: "invalid bearer token",

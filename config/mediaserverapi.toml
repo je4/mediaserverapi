@@ -1,12 +1,13 @@
 localaddr = ":8765"
-clientdomains = ["ubmedia"]
-bearer = "grmbl"
+domains = ["ubmedia"]
 resolveraddr = "[::1]:7777"
 resolvertimeout = "10m"
 resolvernotfoundtimeout = "10s"
 externaladdr = "https://localhost:8765"
 loglevel = "DEBUG"
 
+[bearer]
+ubmedia = "grmbl"
 
 [resttls]
 type = "dev"
