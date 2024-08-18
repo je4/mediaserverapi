@@ -1,5 +1,5 @@
 localaddr = ":8765"
-domains = ["ubmedia"]
+domains = ["ubmedia", "mediathek"]
 resolveraddr = "[::1]:7777"
 resolvertimeout = "10m"
 resolvernotfoundtimeout = "10s"
